@@ -8,7 +8,7 @@ from typing import Any
 try:
     import tomllib  # type: ignore[import-not-found]
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10 fallback
-    import tomli as tomllib  # type: ignore[import-not-found]
+    import tomli as tomllib
 
 
 DEFAULT_EXCLUDE = (
