@@ -56,3 +56,7 @@ jobs:
       - name: Docker build
         working-directory: anki-addon-workbench
         run: docker build -f .tmp/anki-xvfb.Dockerfile -t anki-addon-workbench-ci .
+
+      - name: Anki GUI smoke
+        working-directory: anki-addon-workbench
+        run: docker run --rm -v "$PWD/..":/workspace -w /workspace/anki-addon-workbench anki-addon-workbench-ci
