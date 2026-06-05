@@ -37,6 +37,7 @@ RUN apt-get update \
         libxcb-render-util0 \
         libxcb-shape0 \
         libxcb-xinerama0 \
+        libxi6 \
         libxkbcommon-x11-0 \
         libxrandr2 \
         libxshmfence1 \

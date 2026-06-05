@@ -26,6 +26,7 @@ class DockerfileTest(unittest.TestCase):
             text = render_dockerfile(config)
 
             self.assertIn("ARG ANKI_LAUNCHER_VERSION=25.09", text)
+            self.assertIn("libxi6", text)
             self.assertIn("xdotool", text)
             self.assertIn("xvfb", text)
 
