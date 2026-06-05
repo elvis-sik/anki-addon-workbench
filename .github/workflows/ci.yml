@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out anki-addon-workbench
+        uses: actions/checkout@v4
+        with:
+          path: anki-addon-workbench
+
+      - name: Check out gui-agent-workbench sibling
+        uses: actions/checkout@v4
+        with:
+          repository: elvis-sik/gui-agent-workbench
+          path: gui-agent-workbench
+          token: ${{ secrets.GUI_AGENT_WORKBENCH_TOKEN || github.token }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install system GUI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xdotool xvfb
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Sync
+        working-directory: anki-addon-workbench
+        run: uv sync --frozen --extra dev
+
+      - name: Lint
+        working-directory: anki-addon-workbench
+        run: uv run --extra dev ruff check src tests
+
+      - name: Type check
+        working-directory: anki-addon-workbench
+        run: uv run --extra dev mypy src
+
+      - name: Unit tests
+        working-directory: anki-addon-workbench
+        run: uv run python -m unittest discover -s tests -v
+
+      - name: Render Dockerfile
+        working-directory: anki-addon-workbench
+        run: uv run anki-workbench dockerfile --out .tmp/anki-xvfb.Dockerfile
+
+      - name: Docker build
+        working-directory: anki-addon-workbench
+        run: docker build -f .tmp/anki-xvfb.Dockerfile -t anki-addon-workbench-ci .

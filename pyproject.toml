@@ -1,0 +1,53 @@
+[project]
+name = "anki-addon-workbench"
+version = "0.1.0"
+description = "Disposable Anki profile and GUI workbench tooling for add-on development."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Elvis Sik" }]
+dependencies = [
+  "gui-agent-workbench>=0.1.0",
+  "tomli>=2.0; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.13.0",
+  "ruff>=0.6.0",
+]
+
+[project.scripts]
+anki-workbench = "anki_addon_workbench.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.uv.sources]
+gui-agent-workbench = { path = "../gui-agent-workbench", editable = true }
+
+[tool.uv.pip]
+exclude-newer = "7 days"
+
+[tool.anki-addon-workbench]
+project_name = "Anki Add-on Workbench Fixture"
+addon_package = "fixture_probe_addon"
+source_root = "tests/fixtures/probe_addon"
+include = ["__init__.py"]
+probe_addon = "tests/fixtures/probe_addon"
+probe_package = "zz_fixture_probe"
+anki_version = "25.09"
+profile = "User 1"
+docker_image = "anki-addon-workbench-ci"
+
+[tool.ruff]
+line-length = 100
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = false
