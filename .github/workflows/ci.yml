@@ -13,13 +13,6 @@ jobs:
         with:
           path: anki-addon-workbench
 
-      - name: Check out gui-agent-workbench sibling
-        uses: actions/checkout@v4
-        with:
-          repository: elvis-sik/gui-agent-workbench
-          path: gui-agent-workbench
-          token: ${{ secrets.GUI_AGENT_WORKBENCH_TOKEN || github.token }}
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 

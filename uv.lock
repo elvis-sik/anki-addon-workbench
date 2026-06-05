@@ -7,7 +7,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-05-29T01:46:10.390287Z"
+exclude-newer = "2026-05-29T02:05:31.136665Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -15,7 +15,6 @@ name = "anki-addon-workbench"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "gui-agent-workbench" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
 ]
 
@@ -24,15 +23,18 @@ dev = [
     { name = "mypy" },
     { name = "ruff" },
 ]
+gui = [
+    { name = "gui-agent-workbench" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "gui-agent-workbench", editable = "../gui-agent-workbench" },
+    { name = "gui-agent-workbench", marker = "extra == 'gui'", editable = "../gui-agent-workbench" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6.0" },
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["gui", "dev"]
 
 [[package]]
 name = "ast-serialize"

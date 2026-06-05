@@ -12,8 +12,6 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from gui_agent_workbench import core as gui_core
-
 from .addon_copy import copy_filtered_tree
 from .config import WorkbenchConfig
 from .profile import default_anki_bin, default_anki_python, direct_runner_path, seed_base
@@ -474,7 +472,12 @@ def run_launch(
 def doctor(config: WorkbenchConfig) -> JsonDict:
     anki_bin = choose_anki_bin(config)
     anki_python = choose_anki_python(config, anki_bin)
-    gui_status = gui_core.doctor()
+    try:
+        from gui_agent_workbench import core as gui_core  # type: ignore[import-not-found]
+
+        gui_status = gui_core.doctor()
+    except ImportError:
+        gui_status = {"ok": False, "error": "gui-agent-workbench is not installed"}
     return {
         "ok": True,
         "config": config.as_json(),

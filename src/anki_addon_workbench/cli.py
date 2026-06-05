@@ -4,13 +4,22 @@ import argparse
 import json
 import sys
 from pathlib import Path
-
-from gui_agent_workbench import core as gui_core
+from typing import Any
 
 from . import dockerfile
 from .config import WorkbenchConfig, load_config
 from .runner import DEFAULT_TIMEOUT_SECONDS, doctor, parse_pointer, run_launch, run_smoke
 from .types import JsonDict
+
+
+def _gui_core() -> Any:
+    try:
+        from gui_agent_workbench import core as gui_core  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise RuntimeError(
+            "gui-agent-workbench is required for screenshot/input commands"
+        ) from exc
+    return gui_core
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -92,17 +101,17 @@ def _load(args: argparse.Namespace) -> WorkbenchConfig:
 
 def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
     if args.command == "location":
-        return 0, gui_core.location()
+        return 0, _gui_core().location()
     if args.command == "move":
-        return 0, gui_core.move(args.x, args.y)
+        return 0, _gui_core().move(args.x, args.y)
     if args.command == "click":
-        return 0, gui_core.click(args.button, args.x, args.y)
+        return 0, _gui_core().click(args.button, args.x, args.y)
     if args.command == "key":
-        return 0, gui_core.key(args.keys)
+        return 0, _gui_core().key(args.keys)
     if args.command == "type":
-        return 0, gui_core.type_text(args.text)
+        return 0, _gui_core().type_text(args.text)
     if args.command == "screenshot":
-        return 0, gui_core.screenshot(
+        return 0, _gui_core().screenshot(
             args.out,
             meta=args.meta,
             mark=args.mark,
