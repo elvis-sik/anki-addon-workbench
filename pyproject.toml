@@ -11,9 +11,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-gui = [
-  "gui-agent-workbench>=0.1.0",
-]
 dev = [
   "mypy>=1.13.0",
   "ruff>=0.6.0",
@@ -28,9 +25,6 @@ build-backend = "hatchling.build"
 
 [tool.uv]
 exclude-newer = "7 days"
-
-[tool.uv.sources]
-gui-agent-workbench = { path = "../gui-agent-workbench", editable = true }
 
 [tool.uv.pip]
 exclude-newer = "7 days"

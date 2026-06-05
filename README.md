@@ -20,7 +20,8 @@ For local development from sibling clones:
 git clone git@github.com:elvis-sik/gui-agent-workbench.git
 git clone git@github.com:elvis-sik/anki-addon-workbench.git
 cd anki-addon-workbench
-uv sync --extra dev --extra gui
+uv sync --extra dev
+uv pip install -e ../gui-agent-workbench
 ```
 
 For a project that already has both repositories checked out side by side, add
@@ -30,7 +31,8 @@ override point at `../gui-agent-workbench`.
 PyPI publishing is intentionally not part of v1. Private GitHub installs are
 supported once the caller has GitHub credentials for both repositories. The
 core Anki smoke/profile tooling can run without `gui-agent-workbench`;
-screenshot, mouse, and keyboard commands require it.
+screenshot, mouse, and keyboard commands lazy-load it and fail with a clear
+message if it is not installed.
 
 ## Configure An Add-On
 
