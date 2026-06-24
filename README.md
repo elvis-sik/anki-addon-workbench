@@ -1,4 +1,16 @@
-# anki-addon-workbench
+<h1 align="center">🔬 anki-addon-workbench</h1>
+
+<p align="center">
+  <em>Headless, disposable-profile testing &amp; cross-platform GUI tooling for Anki add-on and deck development.</em>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/anki-addon-workbench/"><img alt="PyPI" src="https://img.shields.io/pypi/v/anki-addon-workbench?color=blue&logo=pypi&logoColor=white"></a>
+  <a href="https://pypi.org/project/anki-addon-workbench/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/anki-addon-workbench?logo=python&logoColor=white"></a>
+  <a href="https://github.com/elvis-sik/anki-addon-workbench/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/elvis-sik/anki-addon-workbench/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/elvis-sik/anki-addon-workbench/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/anki-addon-workbench?color=green"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Xvfb-lightgrey">
+</p>
 
 Disposable Anki profile, add-on install, Docker/Xvfb, smoke-test, and GUI
 workbench tooling for Anki add-on **and deck** development.
