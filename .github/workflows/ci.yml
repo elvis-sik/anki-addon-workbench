@@ -19,7 +19,7 @@ jobs:
       - name: Install system GUI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xdotool xvfb
+          sudo apt-get install -y --no-install-recommends xdotool xvfb scrot
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -28,7 +28,7 @@ jobs:
 
       - name: Sync
         working-directory: anki-addon-workbench
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --extra dev --extra gui
 
       - name: Lint
         working-directory: anki-addon-workbench
@@ -40,7 +40,11 @@ jobs:
 
       - name: Unit tests
         working-directory: anki-addon-workbench
-        run: uv run --extra dev pytest
+        run: uv run --extra dev --extra gui pytest
+
+      - name: GUI tests on a virtual display
+        working-directory: anki-addon-workbench
+        run: xvfb-run -a uv run --extra dev --extra gui pytest tests/test_gui_xvfb.py -v
 
       - name: Render Dockerfile
         working-directory: anki-addon-workbench
