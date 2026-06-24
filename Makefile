@@ -24,7 +24,7 @@ type:
 	$(UV) run --extra dev mypy src
 
 test:
-	$(UV) run python -m unittest discover -s tests -v
+	$(UV) run --extra dev pytest
 
 check: lint type test
 

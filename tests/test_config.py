@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import tempfile
-import unittest
 from pathlib import Path
+
+import pytest
 
 from anki_addon_workbench.config import load_config
 
 
-class ConfigTest(unittest.TestCase):
-    def test_loads_pyproject_table_and_resolves_paths(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            (root / "pyproject.toml").write_text(
-                """
+def test_loads_pyproject_table_and_resolves_paths(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "pyproject.toml").write_text(
+        """
 [tool.anki-addon-workbench]
 project_name = "Fixture"
 addon_package = "fixture_addon"
@@ -25,49 +23,45 @@ anki_version = "25.09"
 profile = "User 1"
 docker_image = "fixture-image"
 """,
-                encoding="utf-8",
-            )
+        encoding="utf-8",
+    )
 
-            config = load_config(root)
+    config = load_config(root)
 
-            self.assertEqual(config.project_name, "Fixture")
-            self.assertEqual(config.addon_package, "fixture_addon")
-            self.assertEqual(config.source_root, root / "addon")
-            self.assertEqual(config.include, ("__init__.py",))
-            self.assertIn(".git", config.exclude)
-            self.assertIn("local", config.exclude)
-            self.assertEqual(config.probe_addon, root / "tests" / "probe")
-            self.assertEqual(config.probe_package, "zz_probe")
-            self.assertEqual(config.docker_image, "fixture-image")
+    assert config.project_name == "Fixture"
+    assert config.addon_package == "fixture_addon"
+    assert config.source_root == root / "addon"
+    assert config.include == ("__init__.py",)
+    assert ".git" in config.exclude
+    assert "local" in config.exclude
+    assert config.probe_addon == root / "tests" / "probe"
+    assert config.probe_package == "zz_probe"
+    assert config.docker_image == "fixture-image"
 
-    def test_falls_back_to_anki_workbench_toml(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            (root / "anki-workbench.toml").write_text(
-                """
+
+def test_falls_back_to_anki_workbench_toml(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "anki-workbench.toml").write_text(
+        """
 project_name = "Fallback"
 addon_package = "fallback_addon"
 """,
-                encoding="utf-8",
-            )
+        encoding="utf-8",
+    )
 
-            config = load_config(root)
+    config = load_config(root)
 
-            self.assertEqual(config.project_name, "Fallback")
-            self.assertEqual(config.addon_package, "fallback_addon")
-            self.assertEqual(config.source_root, root)
-
-    def test_requires_addon_package(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp).resolve()
-            (root / "anki-workbench.toml").write_text(
-                'project_name = "Broken"\n',
-                encoding="utf-8",
-            )
-
-            with self.assertRaisesRegex(ValueError, "addon_package"):
-                load_config(root)
+    assert config.project_name == "Fallback"
+    assert config.addon_package == "fallback_addon"
+    assert config.source_root == root
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_requires_addon_package(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "anki-workbench.toml").write_text(
+        'project_name = "Broken"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="addon_package"):
+        load_config(root)
