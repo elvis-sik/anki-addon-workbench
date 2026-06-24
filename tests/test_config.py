@@ -22,6 +22,7 @@ probe_package = "zz_probe"
 anki_version = "25.09"
 profile = "User 1"
 docker_image = "fixture-image"
+docker_workbench_spec = "anki-addon-workbench[gui]==9.9.9"
 """,
         encoding="utf-8",
     )
@@ -37,6 +38,7 @@ docker_image = "fixture-image"
     assert config.probe_addon == root / "tests" / "probe"
     assert config.probe_package == "zz_probe"
     assert config.docker_image == "fixture-image"
+    assert config.docker_workbench_spec == "anki-addon-workbench[gui]==9.9.9"
 
 
 def test_falls_back_to_anki_workbench_toml(tmp_path: Path) -> None:
@@ -54,6 +56,7 @@ addon_package = "fallback_addon"
     assert config.project_name == "Fallback"
     assert config.addon_package == "fallback_addon"
     assert config.source_root == root
+    assert config.docker_workbench_spec == "anki-addon-workbench[gui]"
 
 
 def test_requires_addon_package(tmp_path: Path) -> None:

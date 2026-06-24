@@ -8,6 +8,7 @@ from anki_addon_workbench.config import WorkbenchConfig
 from anki_addon_workbench.runner import (
     build_anki_command,
     build_launch,
+    doctor,
     prepare_base,
     run_workbench_command,
     validate_probe_result,
@@ -78,6 +79,12 @@ def test_run_workbench_command_reports_helper_failure() -> None:
             {},
             workbench_python="/definitely/missing/python",
         )
+
+
+def test_doctor_reports_workbench_version(tmp_path: Path) -> None:
+    payload = doctor(_config(tmp_path))
+
+    assert payload["workbench_version"]
 
 
 def test_validate_probe_result_accepts_boolean_ok() -> None:

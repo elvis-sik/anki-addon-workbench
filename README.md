@@ -66,6 +66,8 @@ probe_addon = "tests/gui_smoke/probe_addon"
 anki_version = "25.09"
 profile = "User 1"
 docker_image = "my-addon-anki-gui"
+# Optional. Override when dogfooding an unreleased workbench build.
+docker_workbench_spec = "anki-addon-workbench[gui]"
 ```
 
 If the project does not have a `pyproject.toml`, place the same keys in
@@ -150,12 +152,21 @@ docker build -f my-addon/tests/gui_smoke/Dockerfile -t my-addon-anki-gui my-addo
 docker run --rm -v "$PWD":/workspace -w /workspace/my-addon my-addon-anki-gui
 ```
 
-The image installs the Anki Linux launcher, Xvfb, `xdotool`, `scrot`, the GUI
-primitives (pyautogui + Pillow), QtWebEngine runtime libraries, and Python. The
-Anki binary path is provided via the `ANKI_BIN` environment variable (set in the
-image), not hardcoded in the library. Source is expected to be mounted at
-runtime (`PYTHONPATH=/workspace/anki-addon-workbench/src`), so local edits are
-visible without rebuilding the image.
+The image installs the Anki Linux launcher, Xvfb, `xdotool`, `scrot`,
+QtWebEngine runtime libraries, Python, and the configured workbench package spec
+(`anki-addon-workbench[gui]` by default). The Anki binary path is provided via
+the `ANKI_BIN` environment variable (set in the image), not hardcoded in the
+library. The workbench itself is installed into the image, so generated
+Dockerfiles are standalone and do not require a sibling source checkout.
+
+When dogfooding an unreleased workbench build, either set
+`docker_workbench_spec` in `[tool.anki-addon-workbench]` or pass an override:
+
+```sh
+anki-workbench dockerfile \
+  --out tests/gui_smoke/Dockerfile \
+  --workbench-spec "anki-addon-workbench[gui] @ https://github.com/elvis-sik/anki-addon-workbench/archive/<commit>.zip"
+```
 
 ## Development
 

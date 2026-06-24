@@ -24,15 +24,36 @@ def test_render_includes_anki_version_and_runtime_tools(tmp_path: Path) -> None:
     text = render_dockerfile(_config(tmp_path, anki_version="25.09"))
 
     assert "ARG ANKI_LAUNCHER_VERSION=25.09" in text
+    assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[gui]"' in text
     assert "libxi6" in text
     assert "xdotool" in text
     assert "xvfb" in text
-    # GUI backend deps and de-hardcoded Anki path.
-    assert "pyautogui" in text
+    # GUI backend deps arrive through the published workbench package.
+    assert 'pip3 install --break-system-packages --no-cache-dir "${ANKI_ADDON_WORKBENCH_SPEC}"' in text
     assert "scrot" in text
     assert "ENV ANKI_BIN=" in text
-    # The second repo is gone; PYTHONPATH points at the single package only.
+    # The image must be standalone; no sibling checkout or source path is required.
+    assert "PYTHONPATH" not in text
     assert "gui-agent-workbench" not in text
+    assert "/workspace/anki-addon-workbench/src" not in text
+
+
+def test_render_allows_workbench_package_spec_override(tmp_path: Path) -> None:
+    text = render_dockerfile(
+        _config(tmp_path),
+        workbench_spec="anki-addon-workbench[gui]==0.2.1.dev0",
+    )
+
+    assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[gui]==0.2.1.dev0"' in text
+
+
+def test_render_rejects_multiline_workbench_package_spec(tmp_path: Path) -> None:
+    try:
+        render_dockerfile(_config(tmp_path), workbench_spec="good\nbad")
+    except ValueError as exc:
+        assert "workbench_spec" in str(exc)
+    else:
+        raise AssertionError("expected multiline workbench spec to fail")
 
 
 def test_write_dockerfile_creates_parent_directory(tmp_path: Path) -> None:

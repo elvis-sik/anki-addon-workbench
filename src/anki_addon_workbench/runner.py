@@ -500,11 +500,13 @@ def run_launch(
 def doctor(config: WorkbenchConfig) -> JsonDict:
     anki_bin = choose_anki_bin(config)
     anki_python = choose_anki_python(config, anki_bin)
+    from . import __version__
     from .gui import core as gui_core
 
     gui_status = gui_core.doctor()
     return {
         "ok": True,
+        "workbench_version": __version__,
         "config": config.as_json(),
         "anki_bin": anki_bin,
         "anki_bin_exists": Path(anki_bin).exists() or shutil.which(anki_bin) is not None,

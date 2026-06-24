@@ -14,5 +14,9 @@ def test_parser_accepts_public_commands() -> None:
     assert parser.parse_args(["click"]).button == 1
     assert parser.parse_args(["key", "Escape"]).keys == ["Escape"]
     assert parser.parse_args(["type", "hello"]).text == "hello"
-    assert parser.parse_args(["dockerfile", "--out", "Dockerfile"]).out == "Dockerfile"
+    docker_args = parser.parse_args(
+        ["dockerfile", "--out", "Dockerfile", "--workbench-spec", "local.whl"]
+    )
+    assert docker_args.out == "Dockerfile"
+    assert docker_args.workbench_spec == "local.whl"
     assert parser.parse_args(["init-probe", "--out", "probe"]).out == "probe"

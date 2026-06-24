@@ -66,9 +66,12 @@ RUN printf '\n' | /usr/local/bin/anki >/tmp/anki-launcher-install.log 2>/tmp/ank
     && test -x /root/.local/share/AnkiProgramFiles/.venv/bin/anki \
     && rm -rf /root/.cache/uv
 
-# GUI primitives (screenshot/move/click/type) run pyautogui + Pillow in the
-# system interpreter. scrot/python3-xlib (installed above) back pyautogui on X11.
-RUN pip3 install --break-system-packages --no-cache-dir pyautogui Pillow
+ARG ANKI_ADDON_WORKBENCH_SPEC={{WORKBENCH_SPEC}}
+
+# The workbench runs in the system interpreter. Anki itself still runs from the
+# launcher-managed venv below; keep those worlds separate so GUI primitives do
+# not depend on Anki's bundled Python.
+RUN pip3 install --break-system-packages --no-cache-dir "${ANKI_ADDON_WORKBENCH_SPEC}"
 
 ENV QT_QPA_PLATFORM=xcb
 ENV QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox
@@ -78,8 +81,6 @@ ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
 # Environment-specific Anki path (launcher-managed venv) lives here, not in code.
 ENV ANKI_BIN=/root/.local/share/AnkiProgramFiles/.venv/bin/anki
-# Single package, mounted at runtime so local edits need no rebuild.
-ENV PYTHONPATH=/workspace/anki-addon-workbench/src
 
 WORKDIR /work
 

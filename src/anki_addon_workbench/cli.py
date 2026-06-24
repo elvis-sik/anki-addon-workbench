@@ -87,6 +87,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     docker = subparsers.add_parser("dockerfile", help="render the Anki Xvfb Dockerfile")
     docker.add_argument("--out", required=True)
+    docker.add_argument(
+        "--workbench-spec",
+        help=(
+            "package spec installed in the image "
+            "(default: docker_workbench_spec config value)"
+        ),
+    )
 
     probe = subparsers.add_parser(
         "init-probe", help="scaffold a ready-to-edit probe add-on for smoke tests"
@@ -137,8 +144,14 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
     if args.command == "doctor":
         return 0, doctor(config)
     if args.command == "dockerfile":
-        path = dockerfile.write_dockerfile(config, args.out)
-        return 0, {"ok": True, "dockerfile": str(path), "anki_version": config.anki_version}
+        workbench_spec = args.workbench_spec or config.docker_workbench_spec
+        path = dockerfile.write_dockerfile(config, args.out, workbench_spec=workbench_spec)
+        return 0, {
+            "ok": True,
+            "dockerfile": str(path),
+            "anki_version": config.anki_version,
+            "workbench_spec": workbench_spec,
+        }
     if args.command == "smoke":
         return run_smoke(
             config,

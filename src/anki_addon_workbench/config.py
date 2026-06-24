@@ -24,6 +24,8 @@ DEFAULT_EXCLUDE = (
     "user_files",
 )
 
+DEFAULT_DOCKER_WORKBENCH_SPEC = "anki-addon-workbench[gui]"
+
 
 @dataclass(frozen=True)
 class WorkbenchConfig:
@@ -41,6 +43,7 @@ class WorkbenchConfig:
     anki_version: str = "25.09"
     profile: str = "User 1"
     docker_image: str = "anki-addon-workbench-gui"
+    docker_workbench_spec: str = DEFAULT_DOCKER_WORKBENCH_SPEC
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -58,6 +61,7 @@ class WorkbenchConfig:
             "anki_version": self.anki_version,
             "profile": self.profile,
             "docker_image": self.docker_image,
+            "docker_workbench_spec": self.docker_workbench_spec,
         }
 
 
@@ -173,6 +177,10 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
         profile=_optional_str(table.get("profile"), key="profile") or "User 1",
         docker_image=_optional_str(table.get("docker_image"), key="docker_image")
         or "anki-addon-workbench-gui",
+        docker_workbench_spec=_optional_str(
+            table.get("docker_workbench_spec"), key="docker_workbench_spec"
+        )
+        or DEFAULT_DOCKER_WORKBENCH_SPEC,
     )
 
 
