@@ -1,38 +1,43 @@
 # anki-addon-workbench
 
 Disposable Anki profile, add-on install, Docker/Xvfb, smoke-test, and GUI
-workbench tooling for Anki add-on development.
+workbench tooling for Anki add-on **and deck** development.
 
-This project is the Anki-specific layer above
-[`gui-agent-workbench`](https://github.com/elvis-sik/gui-agent-workbench). It
-helps an agent or developer launch Anki away from a real profile, install the
+It helps an agent or developer launch Anki away from a real profile, install the
 add-on under test, run a probe add-on, capture marked screenshots, and send
-mouse or keyboard input inside a virtual display.
+mouse or keyboard input — locally on macOS/Linux or inside a virtual display.
 
-The first target user is an add-on author who wants to make GUI work less
-manual without risking their daily Anki profile.
+The first target users are add-on authors who want to make GUI work less manual
+without risking their daily Anki profile, and deck authors who need to see how
+cards actually render inside Anki (where JavaScript and styling can behave
+differently than in a browser) without manually closing and reopening Anki —
+which triggers a sync round-trip each time.
 
 ## Install
 
-For local development from sibling clones:
+From PyPI:
 
 ```sh
-git clone git@github.com:elvis-sik/gui-agent-workbench.git
-git clone git@github.com:elvis-sik/anki-addon-workbench.git
-cd anki-addon-workbench
-uv sync --extra dev
-uv pip install -e ../gui-agent-workbench
+# core smoke/profile/Docker tooling only (dependency-light)
+uv add anki-addon-workbench
+
+# include the GUI primitives (pyautogui + Pillow) for screenshot/move/click/type
+uv add 'anki-addon-workbench[gui]'
 ```
 
-For a project that already has both repositories checked out side by side, add
-`anki-addon-workbench` as an editable path dependency and let its local source
-override point at `../gui-agent-workbench`.
+(`pip install 'anki-addon-workbench[gui]'` works too.)
 
-PyPI publishing is intentionally not part of v1. Private GitHub installs are
-supported once the caller has GitHub credentials for both repositories. The
-core Anki smoke/profile tooling can run without `gui-agent-workbench`;
-screenshot, mouse, and keyboard commands lazy-load it and fail with a clear
-message if it is not installed.
+The GUI extra is optional: the core `smoke`, `launch` (without screenshots),
+`profile`, and `dockerfile` tooling has no heavy dependencies. The
+screenshot/pointer/keyboard commands lazy-load pyautogui + Pillow and fail with
+a clear install hint if the `[gui]` extra is missing.
+
+**Platform notes.** GUI primitives are cross-platform via pyautogui:
+
+- **macOS** — works against your local `/Applications/Anki.app`; grant Terminal
+  (or your runner) *Screen Recording* and *Accessibility* permission once.
+- **Linux/Xvfb** — works headless; pyautogui uses `scrot` + `python-xlib`
+  (installed by the bundled Docker image).
 
 ## Configure An Add-On
 
@@ -66,6 +71,7 @@ anki-workbench click
 anki-workbench key Escape
 anki-workbench type "search text"
 anki-workbench dockerfile --out tests/gui_smoke/Dockerfile
+anki-workbench init-probe --out tests/gui_smoke/probe_addon
 ```
 
 `smoke` installs the configured add-on and optional probe add-on into a
@@ -77,8 +83,45 @@ and removes the base folder unless `--keep` is passed.
 and interact with the live GUI. It can start Xvfb, wait for the Anki window,
 move the pointer, and capture a cursor-marked screenshot.
 
-The screenshot, pointer, click, key, and type commands are thin pass-throughs to
-`gui-agent-workbench`.
+All commands print JSON. The screenshot command draws a high-contrast synthetic
+marker at the pointer (headless screenshots do not include the real cursor),
+which is far more reliable than depending on the display server to render it.
+
+> **`type` is ASCII-oriented.** It uses pyautogui's keystroke synthesis, which
+> reliably types ASCII and common keys but **cannot reliably type non-ASCII text
+> (e.g. CJK, accented characters)** — those need an input method the synthetic
+> keystrokes bypass. For non-Latin search/input, set the field value through
+> Anki/AnkiConnect rather than `type`. (This is a regression from the old
+> `xdotool type` backend, traded for cross-platform support.)
+
+## The Probe Contract
+
+`smoke` works by installing a small **probe add-on** alongside the add-on under
+test. When Anki finishes starting, the probe writes a JSON result to the path in
+the `ANKI_ADDON_WORKBENCH_RESULT` environment variable and then exits Anki. The
+runner reads that file, prints it, and uses `ok` for its exit status.
+
+**Scaffold one in one command** — you rarely need to write a probe by hand:
+
+```sh
+anki-workbench init-probe --out tests/gui_smoke/probe_addon
+```
+
+This writes a documented, self-contained `__init__.py` with a `run_checks()`
+function to edit. Then point `probe_addon` at that directory in your config.
+
+The result contract:
+
+| Field         | Type | Meaning                                                          |
+| ------------- | ---- | ---------------------------------------------------------------- |
+| `ok`          | bool | **Required.** Whether the probe's checks passed.                 |
+| `checks`      | list | Optional. `[{"name": str, "ok": bool, ...}]` per-check detail.   |
+| anything else | json | Optional. Echoed back verbatim in the smoke output.             |
+
+The runner validates that `ok` is present and boolean; if a probe forgets it (or
+never writes / never exits, which times out), the smoke output says exactly what
+went wrong and points you back to `init-probe`. A probe may also read
+`ANKI_ADDON_WORKBENCH_SCREENSHOT` for a path to capture a screenshot to.
 
 ## Docker/Xvfb
 
@@ -88,19 +131,19 @@ Render the reusable Anki launcher image template in the add-on project:
 anki-workbench dockerfile --out tests/gui_smoke/Dockerfile
 ```
 
-Then build it from the add-on project and run it with a workspace mount that
-contains the add-on project, `anki-addon-workbench`, and
-`gui-agent-workbench` as siblings:
+Then build it and run it with the add-on project mounted:
 
 ```sh
 docker build -f my-addon/tests/gui_smoke/Dockerfile -t my-addon-anki-gui my-addon
 docker run --rm -v "$PWD":/workspace -w /workspace/my-addon my-addon-anki-gui
 ```
 
-The image installs the Anki Linux launcher, Xvfb, `xdotool`, QtWebEngine runtime
-libraries, and Python. It expects source checkouts to be mounted at runtime, so
-local edits are visible without rebuilding the image and private GitHub
-credentials are not needed inside Docker.
+The image installs the Anki Linux launcher, Xvfb, `xdotool`, `scrot`, the GUI
+primitives (pyautogui + Pillow), QtWebEngine runtime libraries, and Python. The
+Anki binary path is provided via the `ANKI_BIN` environment variable (set in the
+image), not hardcoded in the library. Source is expected to be mounted at
+runtime (`PYTHONPATH=/workspace/anki-addon-workbench/src`), so local edits are
+visible without rebuilding the image.
 
 ## Development
 
@@ -108,7 +151,30 @@ credentials are not needed inside Docker.
 make check
 ```
 
-The unit tests cover config loading, add-on copy filtering, profile seeding,
-command construction, and Dockerfile rendering. Docker GUI smoke tests are kept
-behind explicit CI commands because Anki launcher downloads and QtWebEngine
-startup are comparatively slow.
+Tests run on `pytest` (`make test`) and cover config loading, add-on copy
+filtering, profile seeding, command construction, Dockerfile rendering, probe
+scaffolding, and the GUI marker rendering. Docker GUI smoke tests are kept behind
+explicit CI commands because Anki launcher downloads and QtWebEngine startup are
+comparatively slow.
+
+## Releasing
+
+Releases publish to PyPI via GitHub Actions using **Trusted Publishing** (OIDC) —
+no API token is stored. To cut a release:
+
+```sh
+# 1. bump `version` in pyproject.toml, commit
+# 2. tag and push — the tag must match the version
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The [`release.yml`](.github/workflows/release.yml) workflow checks that the tag
+matches `pyproject.toml`, builds the sdist + wheel with `uv build`, and publishes.
+
+One-time setup on PyPI (Account → Publishing → Add a pending publisher):
+
+- **PyPI Project Name:** `anki-addon-workbench`
+- **Owner / Repository:** your GitHub org/repo
+- **Workflow name:** `release.yml`
+- **Environment name:** `pypi`

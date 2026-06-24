@@ -44,6 +44,9 @@ RUN apt-get update \
         libxtst6 \
         libxslt1.1 \
         python3 \
+        python3-pip \
+        python3-xlib \
+        scrot \
         tar \
         xauth \
         xdg-utils \
@@ -63,14 +66,21 @@ RUN printf '\n' | /usr/local/bin/anki >/tmp/anki-launcher-install.log 2>/tmp/ank
     && test -x /root/.local/share/AnkiProgramFiles/.venv/bin/anki \
     && rm -rf /root/.cache/uv
 
+# GUI primitives (screenshot/move/click/type) run pyautogui + Pillow in the
+# system interpreter. scrot/python3-xlib (installed above) back pyautogui on X11.
+RUN pip3 install --break-system-packages --no-cache-dir pyautogui Pillow
+
 ENV QT_QPA_PLATFORM=xcb
 ENV QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox
 ENV QTWEBENGINE_DISABLE_SANDBOX=1
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV DISPLAY=:99
-ENV PYTHONPATH=/workspace/gui-agent-workbench/src:/workspace/anki-addon-workbench/src
+# Environment-specific Anki path (launcher-managed venv) lives here, not in code.
+ENV ANKI_BIN=/root/.local/share/AnkiProgramFiles/.venv/bin/anki
+# Single package, mounted at runtime so local edits need no rebuild.
+ENV PYTHONPATH=/workspace/anki-addon-workbench/src
 
 WORKDIR /work
 
-CMD ["sh", "-lc", "Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & xvfb_pid=$!; export DISPLAY=:99; python3 -m anki_addon_workbench smoke --anki-bin /root/.local/share/AnkiProgramFiles/.venv/bin/anki; status=$?; kill \"$xvfb_pid\" 2>/dev/null || true; exit \"$status\""]
+CMD ["sh", "-lc", "Xvfb :99 -screen 0 1280x1024x24 -nolisten tcp & xvfb_pid=$!; export DISPLAY=:99; python3 -m anki_addon_workbench smoke; status=$?; kill \"$xvfb_pid\" 2>/dev/null || true; exit \"$status\""]

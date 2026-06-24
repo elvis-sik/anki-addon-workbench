@@ -1,21 +1,42 @@
 [project]
 name = "anki-addon-workbench"
-version = "0.1.0"
-description = "Disposable Anki profile and GUI workbench tooling for add-on development."
+version = "0.2.0"
+description = "Disposable Anki profile, add-on install, Docker/Xvfb, and GUI workbench tooling for add-on and deck development."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Elvis Sik" }]
+keywords = ["anki", "addon", "testing", "gui", "automation", "xvfb", "agent"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Software Development :: Testing",
+]
 dependencies = [
   "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
+gui = [
+  "pyautogui>=0.9.54",
+  "Pillow>=10.0",
+]
 dev = [
   "mypy>=1.13.0",
+  "pytest>=8.0",
   "ruff>=0.6.0",
   "tomli>=2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/elvis-sik/anki-addon-workbench"
+Repository = "https://github.com/elvis-sik/anki-addon-workbench"
+Issues = "https://github.com/elvis-sik/anki-addon-workbench/issues"
 
 [project.scripts]
 anki-workbench = "anki_addon_workbench.cli:main"
@@ -41,6 +62,10 @@ anki_version = "25.09"
 profile = "User 1"
 docker_image = "anki-addon-workbench-ci"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
 [tool.ruff]
 line-length = 100
 
@@ -48,3 +73,7 @@ line-length = 100
 python_version = "3.10"
 strict = true
 warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = ["pyautogui", "PIL.*"]
+ignore_missing_imports = true

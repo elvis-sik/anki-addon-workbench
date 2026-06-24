@@ -1,0 +1,82 @@
+"""Anki add-on workbench probe.
+
+Scaffolded by `anki-workbench init-probe`. Edit the marked section below.
+
+A *probe* is a throwaway add-on that the workbench installs next to the add-on
+under test. The workbench launches a disposable Anki with both add-ons loaded;
+when Anki finishes starting, this probe writes a JSON result and exits Anki, so
+`anki-workbench smoke` can run fully headless and report pass/fail.
+
+The contract:
+
+  * The workbench passes a file path in the ``ANKI_ADDON_WORKBENCH_RESULT``
+    environment variable. Write a JSON object there.
+  * The JSON object MUST contain a boolean ``ok``. Anything else you add is
+    echoed back in the smoke output (use it for debugging detail).
+  * Call ``mw.unloadProfileAndExit()`` when done so Anki shuts down cleanly. If
+    you never write the result / never exit, the smoke times out and fails.
+
+You normally only need to edit ``run_checks`` below.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import traceback
+from pathlib import Path
+
+from aqt import gui_hooks, mw
+from aqt.qt import QTimer
+
+RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
+SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
+
+# How long to wait after the main window initializes before running checks, to
+# let the add-on under test finish its own deferred startup work.
+SETTLE_MS = 500
+
+
+def run_checks() -> dict:
+    """Return a JSON-serializable result describing what the probe verified.
+
+    Must include a boolean ``ok``. Replace the example checks with assertions
+    about the add-on under test (imports, registered hooks, menu actions, ...).
+    """
+    checks: list[dict] = []
+
+    # --- edit below -------------------------------------------------------
+    # Example: confirm the add-on under test imported without error.
+    #
+    #     import my_addon  # noqa
+    #     checks.append({"name": "my_addon import", "ok": True})
+    #
+    # Example: confirm it registered a menu action.
+    #
+    #     names = [a.text() for a in mw.form.menuTools.actions()]
+    #     checks.append({"name": "menu action", "ok": "My Add-on" in names})
+    # --- edit above -------------------------------------------------------
+
+    return {
+        "ok": all(check["ok"] for check in checks) if checks else True,
+        "probe": __name__,
+        "main_window": mw is not None,
+        "checks": checks,
+    }
+
+
+def _finish() -> None:
+    result_path = os.environ.get(RESULT_ENV)
+    try:
+        payload = run_checks()
+    except Exception as exc:  # report instead of hanging until timeout
+        payload = {"ok": False, "error": str(exc), "traceback": traceback.format_exc()}
+    if result_path:
+        Path(result_path).write_text(
+            json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8"
+        )
+    if mw is not None:
+        mw.unloadProfileAndExit()
+
+
+gui_hooks.main_window_did_init.append(lambda: QTimer.singleShot(SETTLE_MS, _finish))

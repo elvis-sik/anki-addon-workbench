@@ -18,7 +18,32 @@ from .profile import default_anki_bin, default_anki_python, direct_runner_path, 
 from .types import JsonDict
 
 DEFAULT_TIMEOUT_SECONDS = 45
-MANAGED_ANKI_BIN = Path("/root/.local/share/AnkiProgramFiles/.venv/bin/anki")
+
+# Probe contract: the workbench passes these file paths to the probe add-on via
+# the environment. The probe writes its JSON result (with a boolean ``ok``) to
+# RESULT_ENV; SCREENSHOT_ENV is an optional path a probe may capture into.
+RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
+SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
+
+
+def validate_probe_result(payload: object) -> str | None:
+    """Return a human-readable error if a probe result violates the contract.
+
+    The contract: the probe writes a JSON object with a top-level boolean ``ok``.
+    Returns ``None`` when the payload is valid.
+    """
+    if not isinstance(payload, dict):
+        return (
+            f"probe wrote a result to ${RESULT_ENV} that was not a JSON object. "
+            "Scaffold a correct probe with `anki-workbench init-probe`."
+        )
+    if not isinstance(payload.get("ok"), bool):
+        return (
+            "probe result is missing the required boolean 'ok' field. The probe "
+            f"must write JSON with a top-level boolean 'ok' to ${RESULT_ENV}. "
+            "Scaffold a correct probe with `anki-workbench init-probe`."
+        )
+    return None
 
 
 @dataclass(frozen=True)
@@ -28,14 +53,10 @@ class AnkiLaunch:
     anki_python: str | None
 
 
-def _managed_or_default_anki_bin() -> str:
-    if MANAGED_ANKI_BIN.exists():
-        return str(MANAGED_ANKI_BIN)
-    return default_anki_bin()
-
-
 def choose_anki_bin(config: WorkbenchConfig, override: str | None = None) -> str:
-    return override or config.anki_bin or os.environ.get("ANKI_BIN") or _managed_or_default_anki_bin()
+    # Environment-specific paths (e.g. the launcher-managed bin inside the Docker
+    # image) are supplied via the ANKI_BIN env var rather than hardcoded here.
+    return override or config.anki_bin or os.environ.get("ANKI_BIN") or default_anki_bin()
 
 
 def choose_anki_python(
@@ -292,10 +313,8 @@ def run_smoke(
         prepare_base(config, base_path, include_probe=True)
         _seed_for_launch(base_path, config, launch)
 
-        env["ANKI_ADDON_WORKBENCH_RESULT"] = str(result_path)
-        env["ANKI_ADDON_WORKBENCH_SCREENSHOT"] = str(screenshot_path)
-        env["STUDY_TRIAGE_GUI_SMOKE_RESULT"] = str(result_path)
-        env["STUDY_TRIAGE_GUI_SMOKE_SCREENSHOT"] = str(screenshot_path)
+        env[RESULT_ENV] = str(result_path)
+        env[SCREENSHOT_ENV] = str(screenshot_path)
 
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open(
             "w", encoding="utf-8"
@@ -328,9 +347,15 @@ def run_smoke(
                 "stderr": str(stderr_path),
             }
 
-        payload = json.loads(result_path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict):
-            return 1, {"ok": False, "error": "GUI smoke result was not a JSON object"}
+        raw_payload = json.loads(result_path.read_text(encoding="utf-8"))
+        error = validate_probe_result(raw_payload)
+        if error is not None:
+            invalid: JsonDict = {"ok": False, "error": error, "base": str(base_path)}
+            if isinstance(raw_payload, dict):
+                invalid["result"] = raw_payload
+            return 1, invalid
+        assert isinstance(raw_payload, dict)  # narrowed by validate_probe_result
+        payload = raw_payload
         payload.setdefault("base", str(base_path))
         payload.setdefault("stdout", str(stdout_path))
         payload.setdefault("stderr", str(stderr_path))
@@ -388,7 +413,10 @@ def run_launch(
         anki_python=anki_python,
         no_direct_python=no_direct_python,
     )
-    helper_python = workbench_python or launch.anki_python or sys.executable
+    # GUI commands run pyautogui/Pillow, which live in the workbench's own
+    # environment (the [gui] extra) -- not in Anki's bundled interpreter. Default
+    # to this interpreter unless the caller overrides it explicitly.
+    helper_python = workbench_python or sys.executable
     command = build_anki_command(base_path, config.profile, launch)
     anki_process: subprocess.Popen[str] | None = None
     output: JsonDict = {
@@ -472,12 +500,9 @@ def run_launch(
 def doctor(config: WorkbenchConfig) -> JsonDict:
     anki_bin = choose_anki_bin(config)
     anki_python = choose_anki_python(config, anki_bin)
-    try:
-        from gui_agent_workbench import core as gui_core  # type: ignore[import-not-found]
+    from .gui import core as gui_core
 
-        gui_status = gui_core.doctor()
-    except ImportError:
-        gui_status = {"ok": False, "error": "gui-agent-workbench is not installed"}
+    gui_status = gui_core.doctor()
     return {
         "ok": True,
         "config": config.as_json(),

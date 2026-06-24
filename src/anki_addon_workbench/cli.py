@@ -6,19 +6,15 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from . import dockerfile
+from . import dockerfile, scaffold
 from .config import WorkbenchConfig, load_config
 from .runner import DEFAULT_TIMEOUT_SECONDS, doctor, parse_pointer, run_launch, run_smoke
 from .types import JsonDict
 
 
 def _gui_core() -> Any:
-    try:
-        from gui_agent_workbench import core as gui_core  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise RuntimeError(
-            "gui-agent-workbench is required for screenshot/input commands"
-        ) from exc
+    from .gui import core as gui_core
+
     return gui_core
 
 
@@ -92,6 +88,14 @@ def build_parser() -> argparse.ArgumentParser:
     docker = subparsers.add_parser("dockerfile", help="render the Anki Xvfb Dockerfile")
     docker.add_argument("--out", required=True)
 
+    probe = subparsers.add_parser(
+        "init-probe", help="scaffold a ready-to-edit probe add-on for smoke tests"
+    )
+    probe.add_argument("--out", required=True, help="directory to create the probe add-on in")
+    probe.add_argument(
+        "--force", action="store_true", help="overwrite an existing __init__.py"
+    )
+
     return parser
 
 
@@ -119,6 +123,15 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             marker_size=args.marker_size,
             no_marker=args.no_marker,
         )
+
+    if args.command == "init-probe":
+        path = scaffold.init_probe(args.out, force=args.force)
+        return 0, {
+            "ok": True,
+            "probe_init": str(path),
+            "probe_package": path.parent.name,
+            "next": "Point `probe_addon` at this directory in [tool.anki-addon-workbench].",
+        }
 
     config = _load(args)
     if args.command == "doctor":
