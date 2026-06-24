@@ -11,6 +11,8 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import sys
+import tempfile
 from typing import Any
 
 from .models import ActiveWindow, Marker, PointerLocation
@@ -177,7 +179,54 @@ def draw_marker(image: Any, marker: Marker) -> None:
     draw.text((label_x + 6, label_y + 4 - top), label, fill="#000000", font=font)
 
 
+def _capture_image_linux() -> Any:
+    """Capture the X11 root window without going through pyscreeze.
+
+    pyscreeze chooses its screenshot tool from ``XDG_SESSION_TYPE``, which is
+    unset under Xvfb -- so it ignores an installed ``scrot`` and insists on
+    gnome-screenshot. We instead use Pillow's native XCB grab (no external tool),
+    falling back to ``scrot`` directly if this Pillow build lacks XCB support.
+    """
+    from PIL import Image, ImageGrab  # noqa: PLC0415
+
+    display = os.environ.get("DISPLAY")
+    if not display:
+        raise RuntimeError("DISPLAY is not set; cannot capture a screenshot on Linux.")
+
+    try:
+        return ImageGrab.grab(xdisplay=display)
+    except Exception:  # noqa: BLE001 - fall back to scrot on any XCB issue
+        pass
+
+    scrot = shutil.which("scrot")
+    if scrot is None:
+        raise RuntimeError(
+            "screenshot capture failed: this Pillow build lacks XCB support and "
+            "scrot is not installed. Install scrot (e.g. `apt install scrot`)."
+        )
+    tmp_dir = tempfile.mkdtemp(prefix="aaw-shot-")
+    tmp_path = os.path.join(tmp_dir, "shot.png")
+    try:
+        result = subprocess.run(
+            [scrot, tmp_path],
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0 or not os.path.exists(tmp_path):
+            raise RuntimeError(f"scrot failed to capture the screen: {result.stderr.strip()}")
+        return Image.open(tmp_path).copy()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def capture_image() -> Any:
-    pyautogui = load_pyautogui()
-    image = pyautogui.screenshot()
+    if not pillow_available():
+        raise RuntimeError(_GUI_EXTRA_HINT)
+    if sys.platform.startswith("linux"):
+        image = _capture_image_linux()
+    else:
+        pyautogui = load_pyautogui()
+        image = pyautogui.screenshot()
     return image.convert("RGB")
