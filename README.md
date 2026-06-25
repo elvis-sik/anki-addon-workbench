@@ -96,14 +96,16 @@ more generated `.apkg` files:
 [tool.anki-addon-workbench]
 project_name = "My Deck"
 seed_apkgs = ["out/my-deck.apkg"]
-probe_addon = "tests/gui_smoke/probe_addon"
 anki_version = "25.09"
 docker_image = "my-deck-anki-gui"
 ```
 
 The workbench imports those packages into the disposable profile before Anki's
-GUI starts, so probes and agent-driven launches can inspect the generated deck
-without touching a real collection.
+GUI starts. If `seed_apkgs` is configured and no custom `probe_addon` is set,
+`smoke` automatically installs a built-in deck probe that verifies the
+collection has cards, lists the imported decks and note types, and renders a
+small card sample. Use a custom probe only when the deck needs project-specific
+assertions.
 
 ## CLI
 
@@ -123,8 +125,10 @@ anki-workbench init-probe --out tests/gui_smoke/probe_addon
 
 `smoke` installs the configured add-on and optional probe add-on into a
 disposable base folder, seeds the profile so the first-run language dialog does
-not appear, launches Anki, waits for the probe to write JSON, prints the JSON,
-and removes the base folder unless `--keep` is passed.
+not appear, imports any configured APKGs, launches Anki, waits for the probe to
+write JSON, prints the JSON, and removes the base folder unless `--keep` is
+passed. Deck-only projects with `seed_apkgs` get the built-in deck smoke probe
+automatically when no custom probe is configured.
 
 `launch` starts disposable Anki without the probe add-on so an agent can inspect
 and interact with the live GUI. It can start Xvfb, wait for the Anki window,
@@ -147,6 +151,11 @@ which is far more reliable than depending on the display server to render it.
 test. When Anki finishes starting, the probe writes a JSON result to the path in
 the `ANKI_ADDON_WORKBENCH_RESULT` environment variable and then exits Anki. The
 runner reads that file, prints it, and uses `ok` for its exit status.
+
+For deck-only projects, the built-in APKG probe is usually enough. It is enabled
+automatically when `seed_apkgs` is non-empty and `probe_addon` is omitted. Set
+`deck_smoke_render_limit = 10` if you want it to render more than the default
+five sample cards.
 
 **Scaffold one in one command** — you rarely need to write a probe by hand:
 

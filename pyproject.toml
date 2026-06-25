@@ -1,6 +1,6 @@
 [project]
 name = "anki-addon-workbench"
-version = "0.3.1"
+version = "0.4.0"
 description = "Disposable Anki profile, add-on install, Docker/Xvfb, and GUI workbench tooling for add-on and deck development."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -75,5 +75,5 @@ strict = true
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-module = ["pyautogui", "PIL.*"]
+module = ["anki", "anki.*", "aqt", "aqt.*", "pyautogui", "PIL.*"]
 ignore_missing_imports = true

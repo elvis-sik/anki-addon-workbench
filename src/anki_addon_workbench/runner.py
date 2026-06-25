@@ -15,6 +15,7 @@ from pathlib import Path
 from .addon_copy import copy_filtered_tree
 from .config import WorkbenchConfig
 from .profile import default_anki_bin, default_anki_python, direct_runner_path, path_exists, seed_base
+from .resources import text_resource
 from .types import JsonDict
 
 DEFAULT_TIMEOUT_SECONDS = 45
@@ -24,6 +25,7 @@ DEFAULT_TIMEOUT_SECONDS = 45
 # RESULT_ENV; SCREENSHOT_ENV is an optional path a probe may capture into.
 RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
 SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
+DECK_SMOKE_RENDER_LIMIT_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_RENDER_LIMIT"
 
 
 def validate_probe_result(payload: object) -> str | None:
@@ -142,6 +144,13 @@ def prepare_base(
             config.probe_addon,
             addons_dir / config.probe_package,
             exclude=config.exclude,
+        )
+    elif include_probe and config.seed_apkgs:
+        builtin_probe = addons_dir / config.probe_package
+        builtin_probe.mkdir(parents=True, exist_ok=True)
+        (builtin_probe / "__init__.py").write_text(
+            text_resource("anki_addon_workbench._resources", "deck_smoke_probe.py"),
+            encoding="utf-8",
         )
     return addons_dir
 
@@ -321,6 +330,7 @@ def run_smoke(
 
         env[RESULT_ENV] = str(result_path)
         env[SCREENSHOT_ENV] = str(screenshot_path)
+        env[DECK_SMOKE_RENDER_LIMIT_ENV] = str(config.deck_smoke_render_limit)
 
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open(
             "w", encoding="utf-8"

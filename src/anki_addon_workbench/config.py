@@ -40,6 +40,7 @@ class WorkbenchConfig:
     seed_apkgs: tuple[Path, ...] = ()
     probe_addon: Path | None = None
     probe_package: str = "zz_anki_workbench_probe"
+    deck_smoke_render_limit: int = 5
     anki_bin: str | None = None
     anki_python: str | None = None
     anki_version: str = "25.09"
@@ -59,6 +60,7 @@ class WorkbenchConfig:
             "seed_apkgs": [str(path) for path in self.seed_apkgs],
             "probe_addon": str(self.probe_addon) if self.probe_addon else None,
             "probe_package": self.probe_package,
+            "deck_smoke_render_limit": self.deck_smoke_render_limit,
             "anki_bin": self.anki_bin,
             "anki_python": self.anki_python,
             "anki_version": self.anki_version,
@@ -165,6 +167,14 @@ def _required_str(table: dict[str, Any], key: str) -> str:
     return value
 
 
+def _optional_positive_int(value: object, *, key: str, default: int) -> int:
+    if value is None:
+        return default
+    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+        raise ValueError(f"{key} must be a positive integer")
+    return value
+
+
 def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
     root = path.parent
     project_name = _required_str(table, "project_name")
@@ -195,6 +205,11 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
         seed_apkgs=seed_apkgs,
         probe_addon=_resolve_optional_path(root, table.get("probe_addon"), key="probe_addon"),
         probe_package=probe_package or "zz_anki_workbench_probe",
+        deck_smoke_render_limit=_optional_positive_int(
+            table.get("deck_smoke_render_limit"),
+            key="deck_smoke_render_limit",
+            default=5,
+        ),
         anki_bin=_optional_str(table.get("anki_bin"), key="anki_bin"),
         anki_python=_optional_str(table.get("anki_python"), key="anki_python"),
         anki_version=_optional_str(table.get("anki_version"), key="anki_version") or "25.09",

@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from anki.collection import Collection  # type: ignore[import-not-found]
-from aqt.profiles import ProfileManager  # type: ignore[import-not-found]
+from anki.collection import Collection
+from aqt.profiles import ProfileManager
 
 
 def import_apkg(collection: Collection, path: Path) -> None:
@@ -22,7 +22,7 @@ def import_apkg(collection: Collection, path: Path) -> None:
             )
         )
     except (AttributeError, ImportError):
-        from anki.importing import AnkiPackageImporter  # type: ignore[import-not-found]
+        from anki.importing import AnkiPackageImporter
 
         AnkiPackageImporter(collection, str(path)).run()
 

@@ -90,6 +90,32 @@ def test_prepare_base_allows_deck_only_probe(tmp_path: Path) -> None:
     assert (base / "addons21" / "zz_probe" / "__init__.py").exists()
 
 
+def test_prepare_base_installs_builtin_deck_probe_for_seed_apkgs(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    config = _config(
+        tmp_path,
+        addon_package=None,
+        seed_apkgs=(tmp_path / "out" / "deck.apkg",),
+        probe_addon=None,
+        probe_package="zz_probe",
+    )
+
+    prepare_base(config, base, include_probe=True)
+
+    init_file = base / "addons21" / "zz_probe" / "__init__.py"
+    assert init_file.exists()
+    assert "builtin_deck_smoke" in init_file.read_text(encoding="utf-8")
+
+
+def test_prepare_base_does_not_install_builtin_probe_without_seed_apkgs(tmp_path: Path) -> None:
+    base = tmp_path / "base"
+    config = _config(tmp_path, probe_addon=None, probe_package="zz_probe")
+
+    prepare_base(config, base, include_probe=True)
+
+    assert not (base / "addons21" / "zz_probe").exists()
+
+
 def test_run_workbench_command_reports_helper_failure() -> None:
     with pytest.raises(RuntimeError, match="helper command failed"):
         run_workbench_command(

@@ -19,6 +19,7 @@ include = ["__init__.py"]
 exclude = ["local"]
 probe_addon = "tests/probe"
 probe_package = "zz_probe"
+deck_smoke_render_limit = 7
 anki_version = "25.09"
 profile = "User 1"
 docker_image = "fixture-image"
@@ -38,6 +39,7 @@ seed_apkgs = ["out/sample.apkg"]
     assert "local" in config.exclude
     assert config.probe_addon == root / "tests" / "probe"
     assert config.probe_package == "zz_probe"
+    assert config.deck_smoke_render_limit == 7
     assert config.seed_apkgs == (root / "out" / "sample.apkg",)
     assert config.docker_image == "fixture-image"
     assert config.docker_workbench_spec == "anki-addon-workbench[gui]==9.9.9"
@@ -88,3 +90,18 @@ probe_addon = "tests/probe"
     assert config.addon_package is None
     assert config.seed_apkgs == (root / "out" / "deck.apkg",)
     assert config.probe_addon == root / "tests" / "probe"
+
+
+def test_rejects_invalid_deck_smoke_render_limit(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "anki-workbench.toml").write_text(
+        """
+project_name = "Deck Fixture"
+seed_apkgs = ["out/deck.apkg"]
+deck_smoke_render_limit = 0
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="deck_smoke_render_limit"):
+        load_config(root)
