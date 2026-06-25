@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 UV ?= uv
 
-.PHONY: help lock lint type test test-xvfb check dockerfile
+.PHONY: help lock lint type test test-xvfb check dockerfile docker-smoke-local
 
 help:
 	@printf "Available targets:\n"
@@ -14,6 +14,7 @@ help:
 	@printf "  make test-xvfb   Run GUI tests on a virtual display (Linux/Xvfb)\n"
 	@printf "  make check       Run lint, type, and tests\n"
 	@printf "  make dockerfile  Render the reusable Dockerfile template\n"
+	@printf "  make docker-smoke-local  Build a local wheel image and run Docker smoke\n"
 
 lock:
 	$(UV) lock
@@ -34,3 +35,6 @@ check: lint type test
 
 dockerfile:
 	$(UV) run anki-workbench dockerfile --out .tmp/anki-xvfb.Dockerfile
+
+docker-smoke-local:
+	$(UV) run anki-workbench docker-smoke-local --uv-command "$(UV)"

@@ -8,6 +8,7 @@ from typing import Any
 
 from . import dockerfile, scaffold
 from .config import WorkbenchConfig, load_config
+from .local_docker import DEFAULT_LOCAL_DOCKER_ARTIFACT_DIR, run_docker_smoke_local
 from .runner import DEFAULT_TIMEOUT_SECONDS, doctor, parse_pointer, run_launch, run_smoke
 from .types import JsonDict
 
@@ -95,6 +96,40 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    local = subparsers.add_parser(
+        "docker-smoke-local",
+        help="build a local workbench wheel, Docker image, and run smoke",
+    )
+    local.add_argument(
+        "--workbench-source",
+        default=".",
+        help="local anki-addon-workbench source tree to build into a wheel",
+    )
+    local.add_argument(
+        "--artifact-dir",
+        default=DEFAULT_LOCAL_DOCKER_ARTIFACT_DIR,
+        help="directory for the wheel build context, Dockerfile, and logs",
+    )
+    local.add_argument(
+        "--image",
+        help="Docker image tag (default: configured docker_image with -local suffix)",
+    )
+    local.add_argument(
+        "--uv-command",
+        default="uv",
+        help='command prefix used to build the wheel, e.g. "sfw uv"',
+    )
+    local.add_argument(
+        "--docker-command",
+        default="docker",
+        help="command prefix used to invoke Docker",
+    )
+    local.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="pass --no-cache to docker build",
+    )
+
     probe = subparsers.add_parser(
         "init-probe", help="scaffold a ready-to-edit probe add-on for smoke tests"
     )
@@ -152,6 +187,16 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             "anki_version": config.anki_version,
             "workbench_spec": workbench_spec,
         }
+    if args.command == "docker-smoke-local":
+        return run_docker_smoke_local(
+            config,
+            workbench_source=args.workbench_source,
+            artifact_dir=args.artifact_dir,
+            image=args.image,
+            uv_command=args.uv_command,
+            docker_command=args.docker_command,
+            no_cache=args.no_cache,
+        )
     if args.command == "smoke":
         return run_smoke(
             config,

@@ -66,7 +66,7 @@ RUN printf '\n' | /usr/local/bin/anki >/tmp/anki-launcher-install.log 2>/tmp/ank
     && test -x /root/.local/share/AnkiProgramFiles/.venv/bin/anki \
     && rm -rf /root/.cache/uv
 
-ARG ANKI_ADDON_WORKBENCH_SPEC={{WORKBENCH_SPEC}}
+{{WORKBENCH_LOCAL_WHEEL_COPY}}ARG ANKI_ADDON_WORKBENCH_SPEC={{WORKBENCH_SPEC}}
 
 # The workbench runs in the system interpreter. Anki itself still runs from the
 # launcher-managed venv below; keep those worlds separate so GUI primitives do

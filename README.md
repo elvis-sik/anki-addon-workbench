@@ -85,6 +85,7 @@ anki-workbench click
 anki-workbench key Escape
 anki-workbench type "search text"
 anki-workbench dockerfile --out tests/gui_smoke/Dockerfile
+anki-workbench docker-smoke-local --uv-command "sfw uv"
 anki-workbench init-probe --out tests/gui_smoke/probe_addon
 ```
 
@@ -168,17 +169,33 @@ anki-workbench dockerfile \
   --workbench-spec "anki-addon-workbench[gui] @ https://github.com/elvis-sik/anki-addon-workbench/archive/<commit>.zip"
 ```
 
+For workbench maintainers, the higher-level local-wheel path avoids publishing
+or pushing before testing:
+
+```sh
+anki-workbench docker-smoke-local --uv-command "sfw uv"
+```
+
+It builds a wheel from `--workbench-source` (default: `.`), creates a small
+Docker build context containing that wheel, renders a Dockerfile that installs
+the wheel with `[gui]`, builds the configured image with a `-local` suffix, and
+runs the configured smoke test with the project mounted at `/workspace`.
+Artifacts and command logs are written under `.tmp/anki-workbench-local`.
+
 ## Development
 
 ```sh
 make check
+make docker-smoke-local
 ```
 
 Tests run on `pytest` (`make test`) and cover config loading, add-on copy
 filtering, profile seeding, command construction, Dockerfile rendering, probe
 scaffolding, and the GUI marker rendering. Docker GUI smoke tests are kept behind
 explicit CI commands because Anki launcher downloads and QtWebEngine startup are
-comparatively slow.
+comparatively slow. `make docker-smoke-local` is the maintainer confidence check
+for unreleased workbench changes: it installs the local wheel into the generated
+Docker image instead of pulling the published PyPI package.
 
 ## Releasing
 

@@ -19,4 +19,18 @@ def test_parser_accepts_public_commands() -> None:
     )
     assert docker_args.out == "Dockerfile"
     assert docker_args.workbench_spec == "local.whl"
+    local_args = parser.parse_args(
+        [
+            "docker-smoke-local",
+            "--workbench-source",
+            ".",
+            "--artifact-dir",
+            ".tmp/local",
+            "--uv-command",
+            "sfw uv",
+        ]
+    )
+    assert local_args.workbench_source == "."
+    assert local_args.artifact_dir == ".tmp/local"
+    assert local_args.uv_command == "sfw uv"
     assert parser.parse_args(["init-probe", "--out", "probe"]).out == "probe"

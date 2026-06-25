@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import PurePosixPath
 from pathlib import Path
 
 from .config import WorkbenchConfig
@@ -13,11 +14,35 @@ def _docker_arg_string(value: str, *, key: str) -> str:
     return json.dumps(value)
 
 
-def render_dockerfile(config: WorkbenchConfig, *, workbench_spec: str | None = None) -> str:
-    spec = workbench_spec or config.docker_workbench_spec
+def _docker_copy_wheel_line(local_workbench_wheel: str | None) -> tuple[str, str | None]:
+    if local_workbench_wheel is None:
+        return "", None
+    if "\n" in local_workbench_wheel or "\r" in local_workbench_wheel:
+        raise ValueError("local_workbench_wheel must be a single-line relative path")
+
+    source = PurePosixPath(local_workbench_wheel)
+    if source.is_absolute() or ".." in source.parts or not source.name.endswith(".whl"):
+        raise ValueError("local_workbench_wheel must be a relative .whl path")
+
+    target = PurePosixPath("/tmp/anki-addon-workbench") / source.name
+    return f"COPY {json.dumps([source.as_posix(), target.as_posix()])}\n", target.as_posix()
+
+
+def render_dockerfile(
+    config: WorkbenchConfig,
+    *,
+    workbench_spec: str | None = None,
+    local_workbench_wheel: str | None = None,
+) -> str:
+    copy_line, wheel_target = _docker_copy_wheel_line(local_workbench_wheel)
+    if wheel_target is not None and workbench_spec is None:
+        spec = f"{wheel_target}[gui]"
+    else:
+        spec = workbench_spec or config.docker_workbench_spec
     template = text_resource("anki_addon_workbench.templates", "anki-xvfb.Dockerfile")
     return (
         template.replace("{{ANKI_VERSION}}", config.anki_version)
+        .replace("{{WORKBENCH_LOCAL_WHEEL_COPY}}", copy_line)
         .replace(
             "{{WORKBENCH_SPEC}}",
             _docker_arg_string(spec, key="workbench_spec"),
@@ -26,9 +51,20 @@ def render_dockerfile(config: WorkbenchConfig, *, workbench_spec: str | None = N
 
 
 def write_dockerfile(
-    config: WorkbenchConfig, out: str | Path, *, workbench_spec: str | None = None
+    config: WorkbenchConfig,
+    out: str | Path,
+    *,
+    workbench_spec: str | None = None,
+    local_workbench_wheel: str | None = None,
 ) -> Path:
     path = Path(out)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_dockerfile(config, workbench_spec=workbench_spec), encoding="utf-8")
+    path.write_text(
+        render_dockerfile(
+            config,
+            workbench_spec=workbench_spec,
+            local_workbench_wheel=local_workbench_wheel,
+        ),
+        encoding="utf-8",
+    )
     return path

@@ -47,6 +47,22 @@ def test_render_allows_workbench_package_spec_override(tmp_path: Path) -> None:
     assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[gui]==0.2.1.dev0"' in text
 
 
+def test_render_can_install_local_workbench_wheel(tmp_path: Path) -> None:
+    text = render_dockerfile(
+        _config(tmp_path),
+        local_workbench_wheel="wheels/anki_addon_workbench-0.2.1-py3-none-any.whl",
+    )
+
+    assert (
+        'COPY ["wheels/anki_addon_workbench-0.2.1-py3-none-any.whl", '
+        '"/tmp/anki-addon-workbench/anki_addon_workbench-0.2.1-py3-none-any.whl"]'
+    ) in text
+    assert (
+        'ARG ANKI_ADDON_WORKBENCH_SPEC='
+        '"/tmp/anki-addon-workbench/anki_addon_workbench-0.2.1-py3-none-any.whl[gui]"'
+    ) in text
+
+
 def test_render_rejects_multiline_workbench_package_spec(tmp_path: Path) -> None:
     try:
         render_dockerfile(_config(tmp_path), workbench_spec="good\nbad")
@@ -54,6 +70,15 @@ def test_render_rejects_multiline_workbench_package_spec(tmp_path: Path) -> None
         assert "workbench_spec" in str(exc)
     else:
         raise AssertionError("expected multiline workbench spec to fail")
+
+
+def test_render_rejects_unsafe_local_workbench_wheel_path(tmp_path: Path) -> None:
+    try:
+        render_dockerfile(_config(tmp_path), local_workbench_wheel="../wheel.whl")
+    except ValueError as exc:
+        assert "local_workbench_wheel" in str(exc)
+    else:
+        raise AssertionError("expected unsafe wheel path to fail")
 
 
 def test_write_dockerfile_creates_parent_directory(tmp_path: Path) -> None:
