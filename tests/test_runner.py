@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
+import anki_addon_workbench.runner as runner
 from anki_addon_workbench.config import WorkbenchConfig
 from anki_addon_workbench.runner import (
+    MACOS_BACKGROUND_ENV,
     build_anki_command,
     build_launch,
     doctor,
@@ -114,6 +117,88 @@ def test_prepare_base_does_not_install_builtin_probe_without_seed_apkgs(tmp_path
     prepare_base(config, base, include_probe=True)
 
     assert not (base / "addons21" / "zz_probe").exists()
+
+
+def _run_smoke_with_fake_anki(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    platform: str,
+    foreground: bool = False,
+) -> dict[str, str]:
+    captured: dict[str, dict[str, str]] = {}
+
+    monkeypatch.delenv(MACOS_BACKGROUND_ENV, raising=False)
+    monkeypatch.setattr(runner.sys, "platform", platform)
+
+    def fake_prepare_base(
+        config: WorkbenchConfig,
+        base: Path,
+        *,
+        include_probe: bool,
+    ) -> Path:
+        addons_dir = base / "addons21"
+        addons_dir.mkdir(parents=True)
+        return addons_dir
+
+    def fake_run(
+        command: list[str],
+        env: dict[str, str],
+        text: bool,
+        stdout: object,
+        stderr: object,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        captured["env"] = env.copy()
+        Path(env[runner.RESULT_ENV]).write_text('{"ok": true}', encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(runner, "prepare_base", fake_prepare_base)
+    monkeypatch.setattr(runner, "_seed_for_launch", lambda *args, **kwargs: None)
+    monkeypatch.setattr(runner.subprocess, "run", fake_run)
+
+    status, payload = runner.run_smoke(
+        _config(tmp_path),
+        anki_python="/opt/anki-python",
+        base=str(tmp_path / "base"),
+        foreground=foreground,
+    )
+
+    assert status == 0
+    assert payload["ok"] is True
+    return captured["env"]
+
+
+def test_run_smoke_keeps_macos_process_in_background_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = _run_smoke_with_fake_anki(tmp_path, monkeypatch, platform="darwin")
+
+    assert env[MACOS_BACKGROUND_ENV] == "1"
+
+
+def test_run_smoke_foreground_opt_out_does_not_set_macos_background_env(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = _run_smoke_with_fake_anki(
+        tmp_path,
+        monkeypatch,
+        platform="darwin",
+        foreground=True,
+    )
+
+    assert MACOS_BACKGROUND_ENV not in env
+
+
+def test_run_smoke_does_not_set_macos_background_env_on_other_platforms(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    env = _run_smoke_with_fake_anki(tmp_path, monkeypatch, platform="linux")
+
+    assert MACOS_BACKGROUND_ENV not in env
 
 
 def test_run_workbench_command_reports_helper_failure() -> None:

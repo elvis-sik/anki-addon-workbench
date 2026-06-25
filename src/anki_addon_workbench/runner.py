@@ -26,6 +26,7 @@ DEFAULT_TIMEOUT_SECONDS = 45
 RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
 SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
 DECK_SMOKE_RENDER_LIMIT_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_RENDER_LIMIT"
+MACOS_BACKGROUND_ENV = "QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM"
 
 
 def validate_probe_result(payload: object) -> str | None:
@@ -262,12 +263,19 @@ def _base_path(value: str | None, *, prefix: str) -> Path:
     return Path(tempfile.mkdtemp(prefix=prefix))
 
 
-def _build_env(*, display: str | None = None, qt_platform: str | None = None) -> dict[str, str]:
+def _build_env(
+    *,
+    display: str | None = None,
+    qt_platform: str | None = None,
+    macos_background: bool = False,
+) -> dict[str, str]:
     env = os.environ.copy()
     if display:
         env["DISPLAY"] = display
     if qt_platform:
         env["QT_QPA_PLATFORM"] = qt_platform
+    if macos_background and sys.platform == "darwin":
+        env.setdefault(MACOS_BACKGROUND_ENV, "1")
     env["ANKI_SINGLE_INSTANCE_KEY"] = f"anki-addon-workbench-{uuid.uuid4().hex}"
     return env
 
@@ -299,6 +307,7 @@ def run_smoke(
     xvfb: bool = False,
     display: str | None = None,
     screen: str = "1280x1024x24",
+    foreground: bool = False,
 ) -> tuple[int, JsonDict]:
     base_path = _base_path(base, prefix="anki-workbench-smoke-")
     result_path = base_path / "gui-smoke-result.json"
@@ -306,7 +315,11 @@ def run_smoke(
     stdout_path = base_path / "anki-stdout.log"
     stderr_path = base_path / "anki-stderr.log"
 
-    env = _build_env(display=display, qt_platform=qt_platform)
+    env = _build_env(
+        display=display,
+        qt_platform=qt_platform,
+        macos_background=not foreground,
+    )
     if not env.get("DISPLAY"):
         env["DISPLAY"] = ":99"
 

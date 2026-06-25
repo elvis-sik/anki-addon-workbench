@@ -44,6 +44,11 @@ def build_parser() -> argparse.ArgumentParser:
     smoke.add_argument("--xvfb", action="store_true")
     smoke.add_argument("--display")
     smoke.add_argument("--screen", default="1280x1024x24")
+    smoke.add_argument(
+        "--foreground",
+        action="store_true",
+        help="on macOS, allow the smoke Anki process to become a foreground app",
+    )
 
     launch = subparsers.add_parser("launch", help="launch disposable Anki for agent GUI work")
     launch.add_argument("--anki-bin")
@@ -211,6 +216,7 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             xvfb=args.xvfb,
             display=args.display,
             screen=args.screen,
+            foreground=args.foreground,
         )
     if args.command == "launch":
         return run_launch(

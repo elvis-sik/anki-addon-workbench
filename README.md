@@ -63,6 +63,8 @@ a clear install hint if the `[gui]` extra is missing.
 
 - **macOS** — works against your local `/Applications/Anki.app`; grant Terminal
   (or your runner) *Screen Recording* and *Accessibility* permission once.
+  `smoke` keeps its disposable Anki process in the background by default; use
+  `smoke --foreground` when debugging a visible smoke run.
 - **Linux/Xvfb** — works headless; pyautogui uses `scrot` + `python-xlib`
   (installed by the bundled Docker image).
 
@@ -112,6 +114,7 @@ assertions.
 ```sh
 anki-workbench doctor
 anki-workbench smoke
+anki-workbench smoke --foreground
 anki-workbench launch --xvfb --pointer 500,180 --keep
 anki-workbench screenshot --out .tmp/shot.png --meta .tmp/shot.json
 anki-workbench move 500 180
