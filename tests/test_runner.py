@@ -8,7 +8,7 @@ import pytest
 import anki_addon_workbench.runner as runner
 from anki_addon_workbench.config import WorkbenchConfig
 from anki_addon_workbench.runner import (
-    MACOS_BACKGROUND_ENV,
+    QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV,
     build_anki_command,
     build_launch,
     doctor,
@@ -124,11 +124,11 @@ def _run_smoke_with_fake_anki(
     monkeypatch: pytest.MonkeyPatch,
     *,
     platform: str,
-    foreground: bool = False,
+    allow_foreground: bool = False,
 ) -> dict[str, str]:
     captured: dict[str, dict[str, str]] = {}
 
-    monkeypatch.delenv(MACOS_BACKGROUND_ENV, raising=False)
+    monkeypatch.delenv(QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV, raising=False)
     monkeypatch.setattr(runner.sys, "platform", platform)
 
     def fake_prepare_base(
@@ -161,7 +161,7 @@ def _run_smoke_with_fake_anki(
         _config(tmp_path),
         anki_python="/opt/anki-python",
         base=str(tmp_path / "base"),
-        foreground=foreground,
+        allow_foreground=allow_foreground,
     )
 
     assert status == 0
@@ -169,16 +169,16 @@ def _run_smoke_with_fake_anki(
     return captured["env"]
 
 
-def test_run_smoke_keeps_macos_process_in_background_by_default(
+def test_run_smoke_asks_qt_not_to_auto_activate_on_macos_by_default(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     env = _run_smoke_with_fake_anki(tmp_path, monkeypatch, platform="darwin")
 
-    assert env[MACOS_BACKGROUND_ENV] == "1"
+    assert env[QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV] == "1"
 
 
-def test_run_smoke_foreground_opt_out_does_not_set_macos_background_env(
+def test_run_smoke_allow_foreground_opt_out_does_not_set_qt_macos_env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -186,19 +186,19 @@ def test_run_smoke_foreground_opt_out_does_not_set_macos_background_env(
         tmp_path,
         monkeypatch,
         platform="darwin",
-        foreground=True,
+        allow_foreground=True,
     )
 
-    assert MACOS_BACKGROUND_ENV not in env
+    assert QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV not in env
 
 
-def test_run_smoke_does_not_set_macos_background_env_on_other_platforms(
+def test_run_smoke_does_not_set_qt_macos_env_on_other_platforms(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     env = _run_smoke_with_fake_anki(tmp_path, monkeypatch, platform="linux")
 
-    assert MACOS_BACKGROUND_ENV not in env
+    assert QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV not in env
 
 
 def test_run_workbench_command_reports_helper_failure() -> None:

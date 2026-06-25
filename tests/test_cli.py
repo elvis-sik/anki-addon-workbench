@@ -8,6 +8,8 @@ def test_parser_accepts_public_commands() -> None:
 
     assert parser.parse_args(["doctor"]).command == "doctor"
     assert parser.parse_args(["smoke"]).command == "smoke"
+    assert parser.parse_args(["smoke", "--allow-foreground"]).allow_foreground is True
+    assert parser.parse_args(["smoke", "--foreground"]).allow_foreground is True
     assert parser.parse_args(["launch"]).command == "launch"
     assert parser.parse_args(["location"]).command == "location"
     assert parser.parse_args(["move", "1", "2"]).command == "move"
