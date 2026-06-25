@@ -25,6 +25,21 @@ cards actually render inside Anki (where JavaScript and styling can behave
 differently than in a browser) without manually closing and reopening Anki —
 which triggers a sync round-trip each time.
 
+## 🔁 How it works
+
+```text
+        ┌──────────────────┐                        ┌──────────────────┐
+        │    live Anki     │  move · click · type   │    screenshot    │
+        │    disposable    │ ─────────────────────▶ │  cursor-marked   │
+        │     profile      │      (pyautogui)       │   .png + .json   │
+        └──────────────────┘                        └─────────┬────────┘
+                  ▲                                           │
+                  │           agent reads & decides           │
+                  └───────────────────────────────────────────┘
+```
+
+🗑️ disposable profile · 🚫 no sync churn · 🤖 agent reads the marked shot and adjusts — then loops. No closing and reopening Anki (and no sync round-trip) between glances.
+
 ## Install
 
 From PyPI:
