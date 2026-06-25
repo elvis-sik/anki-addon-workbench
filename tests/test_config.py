@@ -23,6 +23,7 @@ anki_version = "25.09"
 profile = "User 1"
 docker_image = "fixture-image"
 docker_workbench_spec = "anki-addon-workbench[gui]==9.9.9"
+seed_apkgs = ["out/sample.apkg"]
 """,
         encoding="utf-8",
     )
@@ -37,6 +38,7 @@ docker_workbench_spec = "anki-addon-workbench[gui]==9.9.9"
     assert "local" in config.exclude
     assert config.probe_addon == root / "tests" / "probe"
     assert config.probe_package == "zz_probe"
+    assert config.seed_apkgs == (root / "out" / "sample.apkg",)
     assert config.docker_image == "fixture-image"
     assert config.docker_workbench_spec == "anki-addon-workbench[gui]==9.9.9"
 
@@ -68,3 +70,21 @@ def test_requires_addon_package(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="addon_package"):
         load_config(root)
+
+
+def test_allows_deck_only_config_with_seed_apkgs(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "anki-workbench.toml").write_text(
+        """
+project_name = "Deck Fixture"
+seed_apkgs = ["out/deck.apkg"]
+probe_addon = "tests/probe"
+""",
+        encoding="utf-8",
+    )
+
+    config = load_config(root)
+
+    assert config.addon_package is None
+    assert config.seed_apkgs == (root / "out" / "deck.apkg",)
+    assert config.probe_addon == root / "tests" / "probe"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -32,10 +33,11 @@ class WorkbenchConfig:
     root: Path
     config_file: Path
     project_name: str
-    addon_package: str
+    addon_package: str | None
     source_root: Path
     include: tuple[str, ...]
     exclude: tuple[str, ...]
+    seed_apkgs: tuple[Path, ...] = ()
     probe_addon: Path | None = None
     probe_package: str = "zz_anki_workbench_probe"
     anki_bin: str | None = None
@@ -54,6 +56,7 @@ class WorkbenchConfig:
             "source_root": str(self.source_root),
             "include": list(self.include),
             "exclude": list(self.exclude),
+            "seed_apkgs": [str(path) for path in self.seed_apkgs],
             "probe_addon": str(self.probe_addon) if self.probe_addon else None,
             "probe_package": self.probe_package,
             "anki_bin": self.anki_bin,
@@ -115,6 +118,16 @@ def _as_str_tuple(value: object, *, key: str) -> tuple[str, ...]:
     return tuple(result)
 
 
+def _resolve_path_items(root: Path, values: Iterable[str], *, key: str) -> tuple[Path, ...]:
+    paths: list[Path] = []
+    for value in values:
+        path = Path(os.path.expanduser(value))
+        if not path.is_absolute():
+            path = root / path
+        paths.append(path)
+    return tuple(paths)
+
+
 def _resolve_optional_path(root: Path, value: object, *, key: str) -> Path | None:
     if value is None:
         return None
@@ -155,11 +168,21 @@ def _required_str(table: dict[str, Any], key: str) -> str:
 def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
     root = path.parent
     project_name = _required_str(table, "project_name")
-    addon_package = _required_str(table, "addon_package")
+    addon_package = _optional_str(table.get("addon_package"), key="addon_package")
     include = _as_str_tuple(table.get("include"), key="include")
     configured_exclude = _as_str_tuple(table.get("exclude"), key="exclude")
+    seed_apkgs = _resolve_path_items(
+        root,
+        _as_str_tuple(table.get("seed_apkgs"), key="seed_apkgs"),
+        key="seed_apkgs",
+    )
     exclude = tuple(dict.fromkeys((*DEFAULT_EXCLUDE, *configured_exclude)))
     probe_package = _optional_str(table.get("probe_package"), key="probe_package")
+
+    if addon_package is None and not seed_apkgs and table.get("probe_addon") is None:
+        raise ValueError(
+            "addon_package is required unless seed_apkgs or probe_addon is configured"
+        )
 
     return WorkbenchConfig(
         root=root,
@@ -169,6 +192,7 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
         source_root=_resolve_path(root, table.get("source_root"), key="source_root", default="."),
         include=include,
         exclude=exclude,
+        seed_apkgs=seed_apkgs,
         probe_addon=_resolve_optional_path(root, table.get("probe_addon"), key="probe_addon"),
         probe_package=probe_package or "zz_anki_workbench_probe",
         anki_bin=_optional_str(table.get("anki_bin"), key="anki_bin"),

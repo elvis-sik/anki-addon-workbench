@@ -72,6 +72,24 @@ def test_prepare_base_installs_addon_and_probe(tmp_path: Path) -> None:
     assert (base / "addons21" / "zz_probe" / "__init__.py").exists()
 
 
+def test_prepare_base_allows_deck_only_probe(tmp_path: Path) -> None:
+    probe = tmp_path / "probe"
+    base = tmp_path / "base"
+    probe.mkdir()
+    (probe / "__init__.py").write_text("# probe\n", encoding="utf-8")
+    config = _config(
+        tmp_path,
+        addon_package=None,
+        probe_addon=probe,
+        probe_package="zz_probe",
+    )
+
+    prepare_base(config, base, include_probe=True)
+
+    assert not (base / "addons21" / "fixture_addon").exists()
+    assert (base / "addons21" / "zz_probe" / "__init__.py").exists()
+
+
 def test_run_workbench_command_reports_helper_failure() -> None:
     with pytest.raises(RuntimeError, match="helper command failed"):
         run_workbench_command(

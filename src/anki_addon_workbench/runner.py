@@ -130,12 +130,13 @@ def prepare_base(
 ) -> Path:
     addons_dir = base / "addons21"
     addons_dir.mkdir(parents=True, exist_ok=True)
-    copy_filtered_tree(
-        config.source_root,
-        addons_dir / config.addon_package,
-        include=config.include,
-        exclude=config.exclude,
-    )
+    if config.addon_package is not None:
+        copy_filtered_tree(
+            config.source_root,
+            addons_dir / config.addon_package,
+            include=config.include,
+            exclude=config.exclude,
+        )
     if include_probe and config.probe_addon is not None:
         copy_filtered_tree(
             config.probe_addon,
@@ -267,7 +268,12 @@ def _seed_for_launch(
     config: WorkbenchConfig,
     launch: AnkiLaunch,
 ) -> None:
-    seed_base(base, profile=config.profile, anki_python=launch.anki_python)
+    seed_base(
+        base,
+        profile=config.profile,
+        anki_python=launch.anki_python,
+        import_apkgs=config.seed_apkgs,
+    )
 
 
 def run_smoke(

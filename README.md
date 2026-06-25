@@ -77,6 +77,7 @@ addon_package = "my_addon"
 source_root = "."
 include = ["__init__.py", "manifest.json", "README.md"]
 exclude = ["tests", "user_files", ".git", "__pycache__"]
+seed_apkgs = []
 probe_addon = "tests/gui_smoke/probe_addon"
 anki_version = "25.09"
 profile = "User 1"
@@ -87,6 +88,22 @@ docker_workbench_spec = "anki-addon-workbench[gui]"
 
 If the project does not have a `pyproject.toml`, place the same keys in
 `anki-workbench.toml`.
+
+For deck-only projects, omit `addon_package` and point `seed_apkgs` at one or
+more generated `.apkg` files:
+
+```toml
+[tool.anki-addon-workbench]
+project_name = "My Deck"
+seed_apkgs = ["out/my-deck.apkg"]
+probe_addon = "tests/gui_smoke/probe_addon"
+anki_version = "25.09"
+docker_image = "my-deck-anki-gui"
+```
+
+The workbench imports those packages into the disposable profile before Anki's
+GUI starts, so probes and agent-driven launches can inspect the generated deck
+without touching a real collection.
 
 ## CLI
 

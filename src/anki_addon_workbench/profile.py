@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from .resources import resource_path
@@ -33,21 +34,41 @@ def direct_runner_path() -> Path:
     return resource_path("anki_addon_workbench._resources", "run_anki_direct.py")
 
 
-def seed_with_anki_python(anki_python: str, base: Path, profile: str, lang: str) -> None:
-    subprocess.run(
-        [
-            anki_python,
-            str(resource_path("anki_addon_workbench._resources", "seed_anki_base.py")),
-            "--base",
-            str(base),
-            "--profile",
-            profile,
-            "--lang",
-            lang,
-        ],
-        check=True,
+def seed_with_anki_python(
+    anki_python: str,
+    base: Path,
+    profile: str,
+    lang: str,
+    *,
+    import_apkgs: Sequence[Path] = (),
+) -> None:
+    seed_command = [
+        anki_python,
+        str(resource_path("anki_addon_workbench._resources", "seed_anki_base.py")),
+        "--base",
+        str(base),
+        "--profile",
+        profile,
+        "--lang",
+        lang,
+    ]
+    for apkg in import_apkgs:
+        seed_command.extend(["--import-apkg", str(apkg)])
+    completed = subprocess.run(
+        seed_command,
+        check=False,
         env=os.environ.copy(),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
     )
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "Cannot seed disposable Anki profile:\n"
+            f"command: {seed_command}\n"
+            f"stdout:\n{completed.stdout}\n"
+            f"stderr:\n{completed.stderr}"
+        )
 
 
 def seed_base(
@@ -56,6 +77,7 @@ def seed_base(
     profile: str,
     lang: str = "en_US",
     anki_python: str | None = None,
+    import_apkgs: Sequence[Path] = (),
 ) -> None:
     # Seeding uses Anki's own ProfileManager (via the launcher-managed Python),
     # which is correct across Anki versions. There is intentionally no
@@ -67,4 +89,10 @@ def seed_base(
             "found. Pass --anki-python, set ANKI_PYTHON, or ensure a 'python' "
             "executable sits next to the Anki launcher binary."
         )
-    seed_with_anki_python(anki_python, base, profile, lang)
+    seed_with_anki_python(
+        anki_python,
+        base,
+        profile,
+        lang,
+        import_apkgs=import_apkgs,
+    )
