@@ -9,6 +9,13 @@ from pathlib import Path
 from .resources import resource_path
 
 
+def path_exists(path: Path) -> bool:
+    try:
+        return path.exists()
+    except OSError:
+        return False
+
+
 def default_anki_bin() -> str:
     candidates = [
         Path("/Applications/Anki.app/Contents/Resources/.venv/bin/anki"),
@@ -17,7 +24,7 @@ def default_anki_bin() -> str:
         Path("/usr/bin/anki"),
     ]
     for candidate in candidates:
-        if candidate.exists():
+        if path_exists(candidate):
             return str(candidate)
     found = shutil.which("anki")
     return found or "anki"

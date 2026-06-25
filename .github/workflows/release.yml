@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes to PyPI when a version tag is pushed, e.g. `git tag v0.3.0 && git push origin v0.3.0`.
+# Publishes to PyPI when a version tag is pushed, e.g. `git tag v0.3.1 && git push origin v0.3.1`.
 # Uses PyPI Trusted Publishing (OIDC) -- no API token / secret is stored. See the
 # "Releasing" section of the README for the one-time PyPI publisher setup.
 

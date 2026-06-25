@@ -237,8 +237,8 @@ no API token is stored. To cut a release:
 ```sh
 # 1. bump `version` in pyproject.toml, commit
 # 2. tag and push — the tag must match the version
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.3.1
+git push origin v0.3.1
 ```
 
 The [`release.yml`](.github/workflows/release.yml) workflow checks that the tag

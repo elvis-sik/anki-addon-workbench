@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from anki_addon_workbench.profile import seed_base
+from anki_addon_workbench.profile import default_anki_bin, seed_base
 
 
 def test_seed_base_requires_anki_python(tmp_path: Path) -> None:
@@ -65,3 +65,17 @@ def test_seed_base_reports_anki_python_failure(
 
     assert "seed out" in str(exc.value)
     assert "seed err" in str(exc.value)
+
+
+def test_default_anki_bin_ignores_unreadable_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def blocked_exists(self: Path) -> bool:
+        if str(self).startswith("/root/"):
+            raise PermissionError("blocked")
+        return False
+
+    monkeypatch.setattr(Path, "exists", blocked_exists)
+    monkeypatch.setattr("anki_addon_workbench.profile.shutil.which", lambda _: None)
+
+    assert default_anki_bin() == "anki"

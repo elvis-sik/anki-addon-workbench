@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .addon_copy import copy_filtered_tree
 from .config import WorkbenchConfig
-from .profile import default_anki_bin, default_anki_python, direct_runner_path, seed_base
+from .profile import default_anki_bin, default_anki_python, direct_runner_path, path_exists, seed_base
 from .types import JsonDict
 
 DEFAULT_TIMEOUT_SECONDS = 45
@@ -515,9 +515,9 @@ def doctor(config: WorkbenchConfig) -> JsonDict:
         "workbench_version": __version__,
         "config": config.as_json(),
         "anki_bin": anki_bin,
-        "anki_bin_exists": Path(anki_bin).exists() or shutil.which(anki_bin) is not None,
+        "anki_bin_exists": path_exists(Path(anki_bin)) or shutil.which(anki_bin) is not None,
         "anki_python": anki_python,
-        "anki_python_exists": bool(anki_python and Path(anki_python).exists()),
+        "anki_python_exists": bool(anki_python and path_exists(Path(anki_python))),
         "docker": shutil.which("docker"),
         "xvfb": shutil.which("Xvfb"),
         "xdotool": shutil.which("xdotool"),
