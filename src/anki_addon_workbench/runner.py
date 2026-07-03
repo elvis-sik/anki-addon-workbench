@@ -28,6 +28,20 @@ SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
 DECK_SMOKE_RENDER_LIMIT_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_RENDER_LIMIT"
 QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV = "QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM"
 
+# Helper add-on injected into host GUI runs on macOS (unless foreground mode is
+# requested) so the disposable Anki window never activates or covers the
+# user's screen. Runtime kill-switch: ANKI_ADDON_WORKBENCH_STEALTH=0.
+STEALTH_PACKAGE = "zz_workbench_stealth"
+
+# Printed by aqt itself once the main window is up; used as the readiness
+# marker where xdotool cannot see windows (macOS, or xdotool not installed).
+STARTUP_MARKER = "Starting main loop"
+
+
+def stealth_default(*, allow_foreground: bool, xvfb: bool) -> bool:
+    """Whether to inject the stealth helper: macOS host GUI runs only."""
+    return sys.platform == "darwin" and not allow_foreground and not xvfb
+
 
 def validate_probe_result(payload: object) -> str | None:
     """Return a human-readable error if a probe result violates the contract.
@@ -130,9 +144,17 @@ def prepare_base(
     base: Path,
     *,
     include_probe: bool,
+    include_stealth: bool = False,
 ) -> Path:
     addons_dir = base / "addons21"
     addons_dir.mkdir(parents=True, exist_ok=True)
+    if include_stealth:
+        stealth_dir = addons_dir / STEALTH_PACKAGE
+        stealth_dir.mkdir(parents=True, exist_ok=True)
+        (stealth_dir / "__init__.py").write_text(
+            text_resource("anki_addon_workbench._resources", "stealth_addon.py"),
+            encoding="utf-8",
+        )
     if config.addon_package is not None:
         copy_filtered_tree(
             config.source_root,
@@ -243,7 +265,13 @@ def wait_for_window(
     *,
     title: str = "Anki",
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    stdout_path: Path | None = None,
 ) -> int | None:
+    # xdotool only sees X11 windows: on macOS (native windows) or when it is
+    # not installed, fall back to waiting for aqt's startup marker in the
+    # captured stdout log instead of window enumeration.
+    if sys.platform == "darwin" or shutil.which("xdotool") is None:
+        return _wait_for_startup_marker(process, timeout=timeout, stdout_path=stdout_path)
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -253,6 +281,39 @@ def wait_for_window(
             ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
             if ids:
                 return int(ids[-1])
+        time.sleep(0.25)
+    return None
+
+
+def _wait_for_startup_marker(
+    process: subprocess.Popen[str],
+    *,
+    timeout: int,
+    stdout_path: Path | None,
+    settle_seconds: float = 2.0,
+    fallback_seconds: float = 15.0,
+) -> int | None:
+    """Wait until aqt prints STARTUP_MARKER to the stdout log.
+
+    Returns a pseudo window id (0) on success - callers only check for None.
+    Without a log to watch (or a marker, e.g. older Anki), assume the window
+    is up once the process has stayed alive for ``fallback_seconds``.
+    """
+    start = time.monotonic()
+    deadline = start + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            return None
+        if stdout_path is not None and stdout_path.exists():
+            try:
+                text = stdout_path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                text = ""
+            if STARTUP_MARKER in text:
+                time.sleep(settle_seconds)
+                return 0 if process.poll() is None else None
+        if time.monotonic() - start >= fallback_seconds:
+            return 0
         time.sleep(0.25)
     return None
 
@@ -276,6 +337,9 @@ def _build_env(
         env["QT_QPA_PLATFORM"] = qt_platform
     if prevent_macos_auto_activation and sys.platform == "darwin":
         env.setdefault(QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV, "1")
+    # Line-buffered child output so the startup marker reaches the captured
+    # stdout log while the process is still running (see wait_for_window).
+    env.setdefault("PYTHONUNBUFFERED", "1")
     env["ANKI_SINGLE_INSTANCE_KEY"] = f"anki-addon-workbench-{uuid.uuid4().hex}"
     return env
 
@@ -338,7 +402,12 @@ def run_smoke(
     payload: JsonDict
 
     try:
-        prepare_base(config, base_path, include_probe=True)
+        prepare_base(
+            config,
+            base_path,
+            include_probe=True,
+            include_stealth=stealth_default(allow_foreground=allow_foreground, xvfb=xvfb),
+        )
         _seed_for_launch(base_path, config, launch)
 
         env[RESULT_ENV] = str(result_path)
@@ -421,6 +490,7 @@ def run_launch(
     pointer: tuple[int, int] | None = None,
     no_screenshot: bool = False,
     hold: bool = False,
+    allow_foreground: bool = False,
 ) -> tuple[int, JsonDict]:
     base_path = _base_path(base, prefix="anki-workbench-launch-")
     artifacts = Path(artifact_dir)
@@ -430,7 +500,10 @@ def run_launch(
     screenshot_path = artifacts / "screenshot-000.png"
     metadata_path = artifacts / "screenshot-000.json"
 
-    env = _build_env(display=display or os.environ.get("DISPLAY") or ":99")
+    env = _build_env(
+        display=display or os.environ.get("DISPLAY") or ":99",
+        prevent_macos_auto_activation=not allow_foreground,
+    )
     xvfb_process: subprocess.Popen[str] | None = None
     if xvfb:
         xvfb_process = start_xvfb(env["DISPLAY"], screen)
@@ -458,7 +531,12 @@ def run_launch(
     }
 
     try:
-        prepare_base(config, base_path, include_probe=False)
+        prepare_base(
+            config,
+            base_path,
+            include_probe=False,
+            include_stealth=stealth_default(allow_foreground=allow_foreground, xvfb=xvfb),
+        )
         _seed_for_launch(base_path, config, launch)
 
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open(
@@ -472,7 +550,9 @@ def run_launch(
                 text=True,
             )
 
-            window_id = wait_for_window(anki_process, env, timeout=timeout)
+            window_id = wait_for_window(
+                anki_process, env, timeout=timeout, stdout_path=stdout_path
+            )
             if window_id is None:
                 output["error"] = "Anki window was not found before timeout or process exit"
                 output["returncode"] = anki_process.poll()

@@ -136,6 +136,7 @@ def _run_smoke_with_fake_anki(
         base: Path,
         *,
         include_probe: bool,
+        include_stealth: bool = False,
     ) -> Path:
         addons_dir = base / "addons21"
         addons_dir.mkdir(parents=True)
@@ -234,3 +235,109 @@ def test_validate_probe_result_rejects_contract_violations(payload: object) -> N
     error = validate_probe_result(payload)
     assert error is not None
     assert "init-probe" in error
+
+
+class _FakeProcess:
+    def __init__(self, alive: bool = True) -> None:
+        self._alive = alive
+
+    def poll(self) -> int | None:
+        return None if self._alive else 1
+
+
+def test_startup_marker_wait_succeeds_when_marker_present(tmp_path: Path) -> None:
+    log = tmp_path / "anki-stdout.log"
+    log.write_text("Starting Anki 25.09.4...\nStarting main loop...\n", encoding="utf-8")
+
+    window_id = runner._wait_for_startup_marker(
+        _FakeProcess(),  # type: ignore[arg-type]
+        timeout=5,
+        stdout_path=log,
+        settle_seconds=0.0,
+    )
+
+    assert window_id == 0
+
+
+def test_startup_marker_wait_returns_none_when_process_dies(tmp_path: Path) -> None:
+    window_id = runner._wait_for_startup_marker(
+        _FakeProcess(alive=False),  # type: ignore[arg-type]
+        timeout=5,
+        stdout_path=tmp_path / "missing.log",
+        settle_seconds=0.0,
+    )
+
+    assert window_id is None
+
+
+def test_startup_marker_wait_falls_back_to_process_liveness(tmp_path: Path) -> None:
+    window_id = runner._wait_for_startup_marker(
+        _FakeProcess(),  # type: ignore[arg-type]
+        timeout=5,
+        stdout_path=None,
+        settle_seconds=0.0,
+        fallback_seconds=0.0,
+    )
+
+    assert window_id == 0
+
+
+def test_wait_for_window_skips_xdotool_when_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner.shutil, "which", lambda _name: None)
+    log = tmp_path / "anki-stdout.log"
+    log.write_text("Starting main loop...\n", encoding="utf-8")
+
+    def _fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("xdotool must not be invoked when unavailable")
+
+    monkeypatch.setattr(runner, "_run_xdotool", _fail)
+    monkeypatch.setattr(
+        runner,
+        "_wait_for_startup_marker",
+        lambda process, *, timeout, stdout_path: 0,
+    )
+
+    window_id = runner.wait_for_window(
+        _FakeProcess(),  # type: ignore[arg-type]
+        {},
+        timeout=5,
+        stdout_path=log,
+    )
+
+    assert window_id == 0
+
+
+def test_prepare_base_injects_stealth_addon(tmp_path: Path) -> None:
+    config = _config(tmp_path, addon_package=None, source_root=None)
+
+    addons_dir = prepare_base(
+        config, tmp_path / "base", include_probe=False, include_stealth=True
+    )
+
+    stealth = addons_dir / runner.STEALTH_PACKAGE / "__init__.py"
+    assert stealth.exists()
+    content = stealth.read_text(encoding="utf-8")
+    assert "WA_ShowWithoutActivating" in content
+    assert "ANKI_ADDON_WORKBENCH_STEALTH" in content
+
+
+def test_prepare_base_omits_stealth_addon_by_default(tmp_path: Path) -> None:
+    config = _config(tmp_path, addon_package=None, source_root=None)
+
+    addons_dir = prepare_base(config, tmp_path / "base", include_probe=False)
+
+    assert not (addons_dir / runner.STEALTH_PACKAGE).exists()
+
+
+def test_stealth_default_matches_platform_and_flags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(runner.sys, "platform", "darwin")
+    assert runner.stealth_default(allow_foreground=False, xvfb=False)
+    assert not runner.stealth_default(allow_foreground=True, xvfb=False)
+    assert not runner.stealth_default(allow_foreground=False, xvfb=True)
+
+    monkeypatch.setattr(runner.sys, "platform", "linux")
+    assert not runner.stealth_default(allow_foreground=False, xvfb=False)

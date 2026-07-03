@@ -67,6 +67,14 @@ def build_parser() -> argparse.ArgumentParser:
     launch.add_argument("--pointer", type=parse_pointer)
     launch.add_argument("--no-screenshot", action="store_true")
     launch.add_argument("--hold", action="store_true")
+    launch.add_argument(
+        "--allow-foreground",
+        "--foreground",
+        dest="allow_foreground",
+        action="store_true",
+        help="on macOS, let the launched Anki activate and stay on screen "
+        "(default: stealth - no activation, window parked off-screen)",
+    )
 
     screenshot = subparsers.add_parser("screenshot", help="capture a cursor-marked PNG")
     screenshot.add_argument("--out", required=True)
@@ -237,6 +245,7 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             pointer=args.pointer,
             no_screenshot=args.no_screenshot,
             hold=args.hold,
+            allow_foreground=args.allow_foreground,
         )
     raise AssertionError(f"unknown command: {args.command}")
 

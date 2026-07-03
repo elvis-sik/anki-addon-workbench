@@ -63,10 +63,15 @@ a clear install hint if the `[gui]` extra is missing.
 
 - **macOS** — works against your local `/Applications/Anki.app`; grant Terminal
   (or your runner) *Screen Recording* and *Accessibility* permission once.
-  Host `smoke` still launches a real disposable Anki app. By default it asks Qt
-  not to auto-activate the app, which reduces focus stealing but is not the same
-  as a headless run. Use Docker/Xvfb for truly invisible smoke tests, or
-  `smoke --allow-foreground` when debugging an intentionally visible host run.
+  Host `smoke` and `launch` run in **stealth mode by default**: the workbench
+  injects a helper add-on that shows the disposable Anki window without
+  activating it (no focus steal), lowers it, and parks it so only a 2px sliver
+  stays on screen (fully off-screen windows get occlusion-throttled, which
+  would break webview rendering and `mw.grab()` probes). Opt out with
+  `--allow-foreground`/`--foreground` for an intentionally visible run, or set
+  `ANKI_ADDON_WORKBENCH_STEALTH=0` at runtime. `launch` waits for readiness by
+  watching Anki's stdout for its startup marker (xdotool cannot see native
+  macOS windows). Docker/Xvfb remains the truly headless route.
 - **Linux/Xvfb** — works headless; pyautogui uses `scrot` + `python-xlib`
   (installed by the bundled Docker image).
 
