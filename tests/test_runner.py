@@ -7,6 +7,7 @@ import pytest
 
 import anki_addon_workbench.runner as runner
 from anki_addon_workbench.config import WorkbenchConfig
+from anki_addon_workbench.resources import text_resource
 from anki_addon_workbench.runner import (
     QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV,
     build_anki_command,
@@ -41,6 +42,17 @@ def test_builds_direct_python_command(tmp_path: Path) -> None:
     assert command[0] == "/opt/python"
     assert "-b" in command
     assert str(tmp_path / "base") in command
+
+
+def test_direct_runner_bypasses_python_qt_cleanup() -> None:
+    content = text_resource("anki_addon_workbench._resources", "run_anki_direct.py")
+
+    assert "aqt.run()" in content
+    assert 'sys.platform == "darwin"' in content
+    assert "sys.stdout.flush()" in content
+    assert "sys.stderr.flush()" in content
+    assert "os._exit(status)" in content
+    assert "raise SystemExit(status)" in content
 
 
 def test_builds_plain_anki_command(tmp_path: Path) -> None:
