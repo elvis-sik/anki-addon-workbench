@@ -26,6 +26,7 @@ DEFAULT_TIMEOUT_SECONDS = 45
 RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
 SCREENSHOT_ENV = "ANKI_ADDON_WORKBENCH_SCREENSHOT"
 DECK_SMOKE_RENDER_LIMIT_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_RENDER_LIMIT"
+DECK_SMOKE_INCLUDE_HTML_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_INCLUDE_HTML"
 QT_MAC_DISABLE_FOREGROUND_TRANSFORM_ENV = "QT_MAC_DISABLE_FOREGROUND_APPLICATION_TRANSFORM"
 
 # Helper add-on injected into host GUI runs on macOS (unless foreground mode is
@@ -372,6 +373,7 @@ def run_smoke(
     display: str | None = None,
     screen: str = "1280x1024x24",
     allow_foreground: bool = False,
+    deck_smoke_include_html: bool = False,
 ) -> tuple[int, JsonDict]:
     base_path = _base_path(base, prefix="anki-workbench-smoke-")
     result_path = base_path / "gui-smoke-result.json"
@@ -413,6 +415,8 @@ def run_smoke(
         env[RESULT_ENV] = str(result_path)
         env[SCREENSHOT_ENV] = str(screenshot_path)
         env[DECK_SMOKE_RENDER_LIMIT_ENV] = str(config.deck_smoke_render_limit)
+        if deck_smoke_include_html:
+            env[DECK_SMOKE_INCLUDE_HTML_ENV] = "1"
 
         with stdout_path.open("w", encoding="utf-8") as stdout, stderr_path.open(
             "w", encoding="utf-8"

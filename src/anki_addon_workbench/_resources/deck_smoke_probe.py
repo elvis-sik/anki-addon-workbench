@@ -14,6 +14,7 @@ from aqt.qt import QTimer
 
 RESULT_ENV = "ANKI_ADDON_WORKBENCH_RESULT"
 RENDER_LIMIT_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_RENDER_LIMIT"
+INCLUDE_HTML_ENV = "ANKI_ADDON_WORKBENCH_DECK_SMOKE_INCLUDE_HTML"
 SETTLE_MS = 500
 
 
@@ -34,12 +35,30 @@ def _preview(html: str, limit: int = 120) -> str:
     return f"{text[: limit - 1]}..."
 
 
+def _include_html() -> bool:
+    return os.environ.get(INCLUDE_HTML_ENV) in {"1", "true", "True", "yes", "on"}
+
+
+def _media_dir() -> str | None:
+    if mw is None or mw.col is None:
+        return None
+    media = getattr(mw.col, "media", None)
+    if media is None:
+        return None
+    dir_method = getattr(media, "dir", None)
+    if callable(dir_method):
+        return str(dir_method())
+    path = getattr(media, "_dir", None)
+    return str(path) if path is not None else None
+
+
 def run_checks() -> dict[str, object]:
     if mw is None or mw.col is None:
         return {"ok": False, "error": "Anki main window or collection is unavailable"}
 
     col = mw.col
     render_limit = _render_limit()
+    include_html = _include_html()
     card_count = int(col.card_count() or 0)
     note_count = int(col.note_count() or 0)
     deck_names = sorted(deck.name for deck in col.decks.all_names_and_ids())
@@ -68,6 +87,11 @@ def run_checks() -> dict[str, object]:
                     "answer_length": len(answer),
                     "question_preview": _preview(question),
                     "answer_preview": _preview(answer),
+                    **(
+                        {"question_html": question, "answer_html": answer}
+                        if include_html
+                        else {}
+                    ),
                 }
             )
         except Exception as exc:
@@ -95,6 +119,7 @@ def run_checks() -> dict[str, object]:
             "notetypes": notetype_names,
         },
         "render_limit": render_limit,
+        "media_dir": _media_dir() if include_html else None,
         "samples": samples,
     }
 

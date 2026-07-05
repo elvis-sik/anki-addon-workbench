@@ -3,7 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from anki_addon_workbench.config import WorkbenchConfig
-from anki_addon_workbench.dockerfile import render_dockerfile, write_dockerfile
+from anki_addon_workbench.dockerfile import (
+    render_android_dockerfile,
+    render_dockerfile,
+    write_dockerfile,
+)
 
 
 def _config(root: Path, **overrides: object) -> WorkbenchConfig:
@@ -45,6 +49,21 @@ def test_render_allows_workbench_package_spec_override(tmp_path: Path) -> None:
     )
 
     assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[gui]==0.2.1.dev0"' in text
+
+
+def test_render_android_dockerfile_includes_emulator_tooling(tmp_path: Path) -> None:
+    text = render_android_dockerfile(
+        _config(tmp_path),
+        workbench_spec="anki-addon-workbench[android]==0.5.0",
+        ankidroid_apk_url="https://example.test/AnkiDroid.apk",
+    )
+
+    assert "FROM ubuntu:24.04" in text
+    assert "platform-tools" in text
+    assert "system-images;android-${ANDROID_API_LEVEL};google_apis" in text
+    assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[android]==0.5.0"' in text
+    assert 'ARG ANKIDROID_APK_URL="https://example.test/AnkiDroid.apk"' in text
+    assert "android-smoke --start-emulator" in text
 
 
 def test_render_can_install_local_workbench_wheel(tmp_path: Path) -> None:

@@ -7,10 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from . import dockerfile, scaffold
+from .android import DEFAULT_ANDROID_AVD, DEFAULT_CDP_PORT, run_android_smoke
 from .config import WorkbenchConfig, load_config
 from .local_docker import DEFAULT_LOCAL_DOCKER_ARTIFACT_DIR, run_docker_smoke_local
 from .runner import DEFAULT_TIMEOUT_SECONDS, doctor, parse_pointer, run_launch, run_smoke
 from .types import JsonDict
+from .webkit import run_webkit_smoke
 
 
 def _gui_core() -> Any:
@@ -50,6 +52,43 @@ def build_parser() -> argparse.ArgumentParser:
         dest="allow_foreground",
         action="store_true",
         help="on macOS, do not ask Qt to avoid auto-activating the smoke Anki app",
+    )
+
+    webkit = subparsers.add_parser(
+        "webkit-smoke",
+        help="render built-in deck probe samples in Playwright WebKit",
+    )
+    webkit.add_argument("--anki-bin")
+    webkit.add_argument("--anki-python")
+    webkit.add_argument("--base")
+    webkit.add_argument("--keep", action="store_true")
+    webkit.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS)
+    webkit.add_argument("--no-direct-python", action="store_true")
+    webkit.add_argument("--qt-platform")
+    webkit.add_argument("--xvfb", action="store_true")
+    webkit.add_argument("--display")
+    webkit.add_argument("--screen", default="1280x1024x24")
+    webkit.add_argument(
+        "--allow-foreground",
+        "--foreground",
+        dest="allow_foreground",
+        action="store_true",
+        help="on macOS, do not ask Qt to avoid auto-activating the smoke Anki app",
+    )
+    webkit.add_argument(
+        "--selector",
+        action="append",
+        dest="selectors",
+        help="CSS selector that must become visible in every rendered card side",
+    )
+    webkit.add_argument(
+        "--device",
+        help='Playwright device profile to use (default: configured webkit_device, "iPhone 14")',
+    )
+    webkit.add_argument(
+        "--render-timeout-ms",
+        type=int,
+        help="timeout for each WebKit render and selector assertion",
     )
 
     launch = subparsers.add_parser("launch", help="launch disposable Anki for agent GUI work")
@@ -109,6 +148,46 @@ def build_parser() -> argparse.ArgumentParser:
             "package spec installed in the image "
             "(default: docker_workbench_spec config value)"
         ),
+    )
+
+    android_docker = subparsers.add_parser(
+        "android-dockerfile",
+        help="render the opt-in Android emulator smoke Dockerfile",
+    )
+    android_docker.add_argument("--out", required=True)
+    android_docker.add_argument(
+        "--workbench-spec",
+        help=(
+            "package spec installed in the image "
+            "(default: android_workbench_spec config value)"
+        ),
+    )
+    android_docker.add_argument(
+        "--ankidroid-apk-url",
+        help="AnkiDroid full-universal APK URL to download into the image",
+    )
+
+    android_smoke = subparsers.add_parser(
+        "android-smoke",
+        help="run AnkiDroid WebView smoke against configured seed_apkgs",
+    )
+    android_smoke.add_argument("--ankidroid-apk")
+    android_smoke.add_argument("--start-emulator", action="store_true")
+    android_smoke.add_argument("--avd-name", default=DEFAULT_ANDROID_AVD)
+    android_smoke.add_argument("--adb", default="adb")
+    android_smoke.add_argument("--emulator", default="emulator")
+    android_smoke.add_argument("--boot-timeout", type=int, default=240)
+    android_smoke.add_argument("--cdp-port", type=int, default=DEFAULT_CDP_PORT)
+    android_smoke.add_argument(
+        "--selector",
+        action="append",
+        dest="selectors",
+        help="CSS selector that must be visible in the live AnkiDroid card WebView",
+    )
+    android_smoke.add_argument(
+        "--render-timeout-ms",
+        type=int,
+        help="timeout for CDP/WebView inspection",
     )
 
     local = subparsers.add_parser(
@@ -202,6 +281,35 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             "anki_version": config.anki_version,
             "workbench_spec": workbench_spec,
         }
+    if args.command == "android-dockerfile":
+        workbench_spec = args.workbench_spec or config.android_workbench_spec
+        path = dockerfile.write_android_dockerfile(
+            config,
+            args.out,
+            workbench_spec=workbench_spec,
+            ankidroid_apk_url=args.ankidroid_apk_url,
+        )
+        return 0, {
+            "ok": True,
+            "dockerfile": str(path),
+            "android_image": config.android_image,
+            "workbench_spec": workbench_spec,
+            "ankidroid_apk_url": args.ankidroid_apk_url or config.android_ankidroid_apk,
+        }
+    if args.command == "android-smoke":
+        selectors = tuple(args.selectors) if args.selectors is not None else None
+        return run_android_smoke(
+            config,
+            ankidroid_apk=args.ankidroid_apk,
+            start_emulator=args.start_emulator,
+            avd_name=args.avd_name,
+            adb=args.adb,
+            emulator=args.emulator,
+            boot_timeout=args.boot_timeout,
+            cdp_port=args.cdp_port,
+            selectors=selectors,
+            render_timeout_ms=args.render_timeout_ms,
+        )
     if args.command == "docker-smoke-local":
         return run_docker_smoke_local(
             config,
@@ -227,6 +335,25 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             display=args.display,
             screen=args.screen,
             allow_foreground=args.allow_foreground,
+        )
+    if args.command == "webkit-smoke":
+        selectors = tuple(args.selectors) if args.selectors is not None else None
+        return run_webkit_smoke(
+            config,
+            anki_bin=args.anki_bin,
+            anki_python=args.anki_python,
+            base=args.base,
+            keep=args.keep,
+            timeout=args.timeout,
+            no_direct_python=args.no_direct_python,
+            qt_platform=args.qt_platform,
+            xvfb=args.xvfb,
+            display=args.display,
+            screen=args.screen,
+            allow_foreground=args.allow_foreground,
+            selectors=selectors,
+            device=args.device,
+            render_timeout_ms=args.render_timeout_ms,
         )
     if args.command == "launch":
         return run_launch(

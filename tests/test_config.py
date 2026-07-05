@@ -24,6 +24,13 @@ anki_version = "25.09"
 profile = "User 1"
 docker_image = "fixture-image"
 docker_workbench_spec = "anki-addon-workbench[gui]==9.9.9"
+webkit_selectors = ["#answer svg"]
+webkit_device = "iPhone 14"
+card_smoke_timeout_ms = 9000
+android_selectors = ["#answer svg"]
+android_image = "fixture-android"
+android_workbench_spec = "anki-addon-workbench[android]==9.9.9"
+android_ankidroid_apk = "https://example.test/AnkiDroid.apk"
 seed_apkgs = ["out/sample.apkg"]
 """,
         encoding="utf-8",
@@ -43,6 +50,13 @@ seed_apkgs = ["out/sample.apkg"]
     assert config.seed_apkgs == (root / "out" / "sample.apkg",)
     assert config.docker_image == "fixture-image"
     assert config.docker_workbench_spec == "anki-addon-workbench[gui]==9.9.9"
+    assert config.webkit_selectors == ("#answer svg",)
+    assert config.webkit_device == "iPhone 14"
+    assert config.card_smoke_timeout_ms == 9000
+    assert config.android_selectors == ("#answer svg",)
+    assert config.android_image == "fixture-android"
+    assert config.android_workbench_spec == "anki-addon-workbench[android]==9.9.9"
+    assert config.android_ankidroid_apk == "https://example.test/AnkiDroid.apk"
 
 
 def test_falls_back_to_anki_workbench_toml(tmp_path: Path) -> None:

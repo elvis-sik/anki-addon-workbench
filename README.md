@@ -50,6 +50,10 @@ uv add anki-addon-workbench
 
 # include the GUI primitives (pyautogui + Pillow) for screenshot/move/click/type
 uv add 'anki-addon-workbench[gui]'
+
+# include Playwright for iOS/AnkiMobile-engine card smoke tests
+uv add 'anki-addon-workbench[webkit]'
+python -m playwright install webkit
 ```
 
 (`pip install 'anki-addon-workbench[gui]'` works too.)
@@ -58,6 +62,10 @@ The GUI extra is optional: the core `smoke`, `launch` (without screenshots),
 `profile`, and `dockerfile` tooling has no heavy dependencies. The
 screenshot/pointer/keyboard commands lazy-load pyautogui + Pillow and fail with
 a clear install hint if the `[gui]` extra is missing.
+
+The WebKit extra is also optional. It installs Playwright's Python package; run
+`python -m playwright install webkit` once in the same environment to download
+the browser engine used by `webkit-smoke`.
 
 **Platform notes.** GUI primitives are cross-platform via pyautogui:
 
@@ -107,6 +115,8 @@ project_name = "My Deck"
 seed_apkgs = ["out/my-deck.apkg"]
 anki_version = "25.09"
 docker_image = "my-deck-anki-gui"
+webkit_selectors = ["#answer svg"]
+android_selectors = ["#answer svg"]
 ```
 
 The workbench imports those packages into the disposable profile before Anki's
@@ -121,6 +131,8 @@ assertions.
 ```sh
 anki-workbench doctor
 anki-workbench smoke
+anki-workbench webkit-smoke
+anki-workbench webkit-smoke --selector "#answer svg"
 anki-workbench smoke --allow-foreground
 anki-workbench launch --xvfb --pointer 500,180 --keep
 anki-workbench screenshot --out .tmp/shot.png --meta .tmp/shot.json
@@ -129,7 +141,9 @@ anki-workbench click
 anki-workbench key Escape
 anki-workbench type "search text"
 anki-workbench dockerfile --out tests/gui_smoke/Dockerfile
+anki-workbench android-dockerfile --out tests/android_smoke/Dockerfile
 anki-workbench docker-smoke-local --uv-command "sfw uv"
+anki-workbench android-smoke --start-emulator
 anki-workbench init-probe --out tests/gui_smoke/probe_addon
 ```
 
@@ -147,6 +161,69 @@ move the pointer, and capture a cursor-marked screenshot.
 All commands print JSON. The screenshot command draws a high-contrast synthetic
 marker at the pointer (headless screenshots do not include the real cursor),
 which is far more reliable than depending on the display server to render it.
+
+## Testing Cards On iOS And Android Engines
+
+Anki card JavaScript runs in different engines depending on platform:
+
+- Anki Desktop uses Qt WebEngine.
+- AnkiMobile on iOS uses WebKit/WKWebView.
+- AnkiDroid uses Android System WebView.
+
+`smoke` still tests the real Anki Desktop path. `webkit-smoke` adds the iOS
+engine path by first running the built-in deck probe in disposable Anki, then
+serving the imported collection media directory locally and injecting each
+rendered front/back HTML sample into Playwright WebKit the way Anki does:
+`innerHTML` first, then re-created `<script>` nodes. That matters because
+external scripts created this way load asynchronously while trailing inline
+scripts run immediately, which catches load-order races that `page.setContent()`
+can miss.
+
+Use it for deck projects with `seed_apkgs` and the built-in probe:
+
+```sh
+anki-workbench webkit-smoke --selector "#answer svg"
+```
+
+Selectors may also live in config:
+
+```toml
+[tool.anki-addon-workbench]
+seed_apkgs = ["out/my-deck.apkg"]
+webkit_selectors = ["#answer svg"]
+webkit_device = "iPhone 14"
+card_smoke_timeout_ms = 8000
+```
+
+The JSON output includes the desktop probe result plus per-card WebKit checks,
+including console errors, uncaught page errors, card error events, failed media
+requests, and selector visibility results.
+
+`android-smoke` is intentionally heavier. It is meant to run against a real
+AnkiDroid install in an emulator, imports configured APKGs through Android's
+MediaStore `content://` flow, opens a reviewer card, and inspects the live
+AnkiDroid WebView over adb-forwarded Chrome DevTools Protocol using a raw CDP
+client. Generate the opt-in image with:
+
+```sh
+anki-workbench android-dockerfile \
+  --out tests/android_smoke/Dockerfile \
+  --ankidroid-apk-url "https://github.com/ankidroid/Anki-Android/releases/download/<version>/AnkiDroid-<version>-full-universal.apk"
+```
+
+Then build and run it with KVM access on Linux CI or a local Linux host:
+
+```sh
+docker build -f tests/android_smoke/Dockerfile -t my-deck-android .
+docker run --rm --device /dev/kvm -v "$PWD":/workspace -w /workspace my-deck-android
+```
+
+The Android image is slow and large, roughly 7 GB once the SDK, emulator image,
+AVD, and AnkiDroid APK are present. It verifies that a card renders in
+AnkiDroid's actual WebView and that configured selectors are visible, but it is
+not a guarantee for every physical-device quirk. In particular, emulator smoke
+may not reproduce all freshly-imported-media serving failures or AnkiDroid's
+known false-positive "Card Content Error" toast from its own JS bridge.
 
 > **`type` is ASCII-oriented.** It uses pyautogui's keystroke synthesis, which
 > reliably types ASCII and common keys but **cannot reliably type non-ASCII text

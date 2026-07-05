@@ -26,6 +26,7 @@ DEFAULT_EXCLUDE = (
 )
 
 DEFAULT_DOCKER_WORKBENCH_SPEC = "anki-addon-workbench[gui]"
+DEFAULT_ANDROID_WORKBENCH_SPEC = "anki-addon-workbench[android]"
 
 
 @dataclass(frozen=True)
@@ -47,6 +48,13 @@ class WorkbenchConfig:
     profile: str = "User 1"
     docker_image: str = "anki-addon-workbench-gui"
     docker_workbench_spec: str = DEFAULT_DOCKER_WORKBENCH_SPEC
+    webkit_selectors: tuple[str, ...] = ()
+    webkit_device: str = "iPhone 14"
+    card_smoke_timeout_ms: int = 8000
+    android_selectors: tuple[str, ...] = ()
+    android_image: str = "anki-addon-workbench-android"
+    android_workbench_spec: str = DEFAULT_ANDROID_WORKBENCH_SPEC
+    android_ankidroid_apk: str | None = None
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -67,6 +75,13 @@ class WorkbenchConfig:
             "profile": self.profile,
             "docker_image": self.docker_image,
             "docker_workbench_spec": self.docker_workbench_spec,
+            "webkit_selectors": list(self.webkit_selectors),
+            "webkit_device": self.webkit_device,
+            "card_smoke_timeout_ms": self.card_smoke_timeout_ms,
+            "android_selectors": list(self.android_selectors),
+            "android_image": self.android_image,
+            "android_workbench_spec": self.android_workbench_spec,
+            "android_ankidroid_apk": self.android_ankidroid_apk,
         }
 
 
@@ -220,6 +235,24 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
             table.get("docker_workbench_spec"), key="docker_workbench_spec"
         )
         or DEFAULT_DOCKER_WORKBENCH_SPEC,
+        webkit_selectors=_as_str_tuple(table.get("webkit_selectors"), key="webkit_selectors"),
+        webkit_device=_optional_str(table.get("webkit_device"), key="webkit_device")
+        or "iPhone 14",
+        card_smoke_timeout_ms=_optional_positive_int(
+            table.get("card_smoke_timeout_ms"),
+            key="card_smoke_timeout_ms",
+            default=8000,
+        ),
+        android_selectors=_as_str_tuple(table.get("android_selectors"), key="android_selectors"),
+        android_image=_optional_str(table.get("android_image"), key="android_image")
+        or "anki-addon-workbench-android",
+        android_workbench_spec=_optional_str(
+            table.get("android_workbench_spec"), key="android_workbench_spec"
+        )
+        or DEFAULT_ANDROID_WORKBENCH_SPEC,
+        android_ankidroid_apk=_optional_str(
+            table.get("android_ankidroid_apk"), key="android_ankidroid_apk"
+        ),
     )
 
 

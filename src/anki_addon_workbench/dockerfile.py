@@ -50,6 +50,24 @@ def render_dockerfile(
     )
 
 
+def render_android_dockerfile(
+    config: WorkbenchConfig,
+    *,
+    workbench_spec: str | None = None,
+    ankidroid_apk_url: str | None = None,
+) -> str:
+    template = text_resource("anki_addon_workbench.templates", "android-emulator.Dockerfile")
+    spec = workbench_spec or config.android_workbench_spec
+    apk_url = ankidroid_apk_url or config.android_ankidroid_apk or ""
+    return (
+        template.replace("{{WORKBENCH_SPEC}}", _docker_arg_string(spec, key="workbench_spec"))
+        .replace(
+            "{{ANKIDROID_APK_URL}}",
+            _docker_arg_string(apk_url, key="ankidroid_apk_url"),
+        )
+    )
+
+
 def write_dockerfile(
     config: WorkbenchConfig,
     out: str | Path,
@@ -64,6 +82,26 @@ def write_dockerfile(
             config,
             workbench_spec=workbench_spec,
             local_workbench_wheel=local_workbench_wheel,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def write_android_dockerfile(
+    config: WorkbenchConfig,
+    out: str | Path,
+    *,
+    workbench_spec: str | None = None,
+    ankidroid_apk_url: str | None = None,
+) -> Path:
+    path = Path(out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        render_android_dockerfile(
+            config,
+            workbench_spec=workbench_spec,
+            ankidroid_apk_url=ankidroid_apk_url,
         ),
         encoding="utf-8",
     )

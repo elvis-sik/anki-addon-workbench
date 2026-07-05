@@ -1,7 +1,7 @@
 [project]
 name = "anki-addon-workbench"
-version = "0.4.3"
-description = "Disposable Anki profile, add-on install, Docker/Xvfb, and GUI workbench tooling for add-on and deck development."
+version = "0.5.0"
+description = "Disposable Anki profile, add-on install, Docker/Xvfb, and cross-platform card workbench tooling for Anki add-on and deck development."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -26,6 +26,10 @@ gui = [
   "pyautogui>=0.9.54",
   "Pillow>=10.0",
 ]
+webkit = [
+  "playwright>=1.48.0",
+]
+android = []
 dev = [
   "mypy>=1.13.0",
   "pytest>=8.0",
