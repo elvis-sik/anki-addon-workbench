@@ -55,6 +55,7 @@ class WorkbenchConfig:
     android_image: str = "anki-addon-workbench-android"
     android_workbench_spec: str = DEFAULT_ANDROID_WORKBENCH_SPEC
     android_ankidroid_apk: str | None = None
+    android_clear_app_data: bool = False
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -82,6 +83,7 @@ class WorkbenchConfig:
             "android_image": self.android_image,
             "android_workbench_spec": self.android_workbench_spec,
             "android_ankidroid_apk": self.android_ankidroid_apk,
+            "android_clear_app_data": self.android_clear_app_data,
         }
 
 
@@ -190,6 +192,14 @@ def _optional_positive_int(value: object, *, key: str, default: int) -> int:
     return value
 
 
+def _optional_bool(value: object, *, key: str, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if not isinstance(value, bool):
+        raise ValueError(f"{key} must be a boolean")
+    return value
+
+
 def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
     root = path.parent
     project_name = _required_str(table, "project_name")
@@ -252,6 +262,9 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
         or DEFAULT_ANDROID_WORKBENCH_SPEC,
         android_ankidroid_apk=_optional_str(
             table.get("android_ankidroid_apk"), key="android_ankidroid_apk"
+        ),
+        android_clear_app_data=_optional_bool(
+            table.get("android_clear_app_data"), key="android_clear_app_data"
         ),
     )
 

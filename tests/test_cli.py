@@ -39,10 +39,11 @@ def test_parser_accepts_public_commands() -> None:
     assert android_docker_args.out == "Android.Dockerfile"
     assert android_docker_args.ankidroid_apk_url == "https://example.test/AnkiDroid.apk"
     android_smoke_args = parser.parse_args(
-        ["android-smoke", "--start-emulator", "--selector", "#answer svg"]
+        ["android-smoke", "--start-emulator", "--clear-app-data", "--selector", "#answer svg"]
     )
     assert android_smoke_args.command == "android-smoke"
     assert android_smoke_args.start_emulator is True
+    assert android_smoke_args.clear_app_data is True
     assert android_smoke_args.selectors == ["#answer svg"]
     local_args = parser.parse_args(
         [

@@ -173,6 +173,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     android_smoke.add_argument("--ankidroid-apk")
     android_smoke.add_argument("--start-emulator", action="store_true")
+    android_smoke.add_argument(
+        "--clear-app-data",
+        action="store_true",
+        help="clear AnkiDroid app data before import; intended for disposable emulators",
+    )
     android_smoke.add_argument("--avd-name", default=DEFAULT_ANDROID_AVD)
     android_smoke.add_argument("--adb", default="adb")
     android_smoke.add_argument("--emulator", default="emulator")
@@ -307,6 +312,7 @@ def dispatch(args: argparse.Namespace) -> tuple[int, JsonDict]:
             emulator=args.emulator,
             boot_timeout=args.boot_timeout,
             cdp_port=args.cdp_port,
+            clear_app_data=args.clear_app_data,
             selectors=selectors,
             render_timeout_ms=args.render_timeout_ms,
         )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -23,10 +24,10 @@ from .config import WorkbenchConfig
 from .types import JsonDict
 
 ANKIDROID_PACKAGE = "com.ichi2.anki"
-ANKIDROID_DECK_PICKER = "com.ichi2.anki/.DeckPicker"
 ANKIDROID_INTENT_HANDLER = "com.ichi2.anki/.IntentHandler"
 DEFAULT_ANDROID_AVD = "aaw_test"
 DEFAULT_CDP_PORT = 9222
+ANDROID_STORAGE_CLEANUP_TIMEOUT = 240
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,7 @@ def run_android_smoke(
     emulator: str = "emulator",
     boot_timeout: int = 240,
     cdp_port: int = DEFAULT_CDP_PORT,
+    clear_app_data: bool = False,
     selectors: tuple[str, ...] | None = None,
     render_timeout_ms: int | None = None,
 ) -> tuple[int, JsonDict]:
@@ -118,14 +120,25 @@ def run_android_smoke(
             )
         wait_for_android_boot(device, timeout=boot_timeout)
 
+        use_direct_seed = clear_app_data or config.android_clear_app_data
         if apk:
             device.run(["install", "-r", apk], timeout=180)
-        onboard_ankidroid(device)
+        if use_direct_seed:
+            clear_ankidroid_app_data(device)
 
         deck_names: list[str] = []
-        for index, apkg in enumerate(config.seed_apkgs):
-            deck_names.extend(extract_deck_names(apkg))
-            imported.append(import_apkg(device, apkg, index=index))
+        if use_direct_seed:
+            if len(config.seed_apkgs) != 1:
+                raise ValueError("android_clear_app_data direct seeding requires exactly one seed_apkg")
+            apkg = config.seed_apkgs[0]
+            deck_names.append("Default")
+            imported.append(seed_ankidroid_collection(device, apkg))
+            onboard_ankidroid(device)
+        else:
+            onboard_ankidroid(device)
+            for index, apkg in enumerate(config.seed_apkgs):
+                deck_names.extend(extract_deck_names(apkg))
+                imported.append(import_apkg(device, apkg, index=index))
 
         open_reviewer(device, deck_names=deck_names, timeout=max(30, timeout_ms // 1000))
         inspection = inspect_ankidroid_webview(
@@ -174,7 +187,7 @@ def wait_for_android_boot(device: AndroidDevice, *, timeout: int) -> None:
 
 
 def onboard_ankidroid(device: AndroidDevice) -> None:
-    device.shell(["am", "start", "-n", ANKIDROID_DECK_PICKER])
+    start_ankidroid(device)
     device.shell(
         ["appops", "set", "--uid", ANKIDROID_PACKAGE, "MANAGE_EXTERNAL_STORAGE", "allow"],
         check=False,
@@ -232,11 +245,118 @@ def open_reviewer(
     deck_names: list[str],
     timeout: int,
 ) -> None:
-    device.shell(["am", "start", "-n", ANKIDROID_DECK_PICKER])
+    start_ankidroid(device)
     candidates = tuple(deck_names) + ("Default",)
     if not tap_text(device, candidates, timeout=timeout, required=False):
         tap_first_deck_row(device, timeout=timeout)
     tap_text(device, ("Study Now", "STUDY NOW"), timeout=timeout, required=False)
+
+
+def start_ankidroid(device: AndroidDevice) -> None:
+    device.shell(["am", "start", "-n", ANKIDROID_INTENT_HANDLER])
+
+
+def clear_ankidroid_app_data(device: AndroidDevice) -> None:
+    device.shell(["pm", "clear", ANKIDROID_PACKAGE], timeout=60)
+    device.shell(
+        ["rm", "-rf", "/sdcard/AnkiDroid"],
+        check=False,
+        timeout=ANDROID_STORAGE_CLEANUP_TIMEOUT,
+    )
+    device.shell(
+        ["rm", "-rf", f"/sdcard/Android/data/{ANKIDROID_PACKAGE}"],
+        check=False,
+        timeout=ANDROID_STORAGE_CLEANUP_TIMEOUT,
+    )
+
+
+def seed_ankidroid_collection(device: AndroidDevice, apkg: Path) -> JsonDict:
+    if not apkg.is_file():
+        raise FileNotFoundError(apkg)
+
+    with tempfile.TemporaryDirectory(prefix="aaw-ankidroid-seed-") as tempdir:
+        temp_path = Path(tempdir)
+        collection_path, media_dir, media_count = extract_apkg_for_ankidroid(apkg, temp_path)
+        device.shell(["mkdir", "-p", "/sdcard/AnkiDroid/collection.media"], timeout=60)
+        device.run(
+            ["push", str(collection_path), "/sdcard/AnkiDroid/collection.anki2"],
+            timeout=180,
+        )
+        if media_count:
+            device.run(
+                ["push", f"{media_dir}/.", "/sdcard/AnkiDroid/collection.media/"],
+                timeout=300,
+            )
+    return {
+        "apkg": str(apkg),
+        "method": "direct-storage-seed",
+        "remote_collection": "/sdcard/AnkiDroid/collection.anki2",
+        "remote_media_dir": "/sdcard/AnkiDroid/collection.media",
+        "media_count": media_count,
+    }
+
+
+def extract_apkg_for_ankidroid(apkg: Path, output_dir: Path) -> tuple[Path, Path, int]:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(apkg) as archive:
+        names = set(archive.namelist())
+        collection_name = "collection.anki21" if "collection.anki21" in names else "collection.anki2"
+        if collection_name not in names:
+            raise ValueError(f"{apkg} does not contain collection.anki2 or collection.anki21")
+        collection_path = output_dir / "collection.anki2"
+        collection_path.write_bytes(archive.read(collection_name))
+        collapse_collection_to_default_deck(collection_path)
+
+        media_dir = output_dir / "collection.media"
+        media_dir.mkdir()
+        media_count = 0
+        if "media" in names:
+            media_map = json.loads(archive.read("media").decode("utf-8"))
+            if not isinstance(media_map, dict):
+                raise ValueError(f"{apkg} media manifest is not a JSON object")
+            for member, filename in media_map.items():
+                if not isinstance(member, str) or not isinstance(filename, str):
+                    continue
+                if member not in names:
+                    continue
+                target = media_dir / filename
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with contextlib.suppress(FileNotFoundError):
+                    target.write_bytes(archive.read(member))
+                    media_count += 1
+    return collection_path, media_dir, media_count
+
+
+def collapse_collection_to_default_deck(collection_path: Path) -> None:
+    with sqlite3.connect(collection_path) as conn:
+        conn.execute("update cards set did = 1")
+        row = conn.execute("select decks from col").fetchone()
+        if row is None or not isinstance(row[0], str):
+            return
+        decks = json.loads(row[0])
+        if not isinstance(decks, dict):
+            return
+        default_deck = decks.get("1")
+        if not isinstance(default_deck, dict):
+            default_deck = {
+                "id": 1,
+                "name": "Default",
+                "conf": 1,
+                "extendNew": 0,
+                "extendRev": 0,
+                "mod": 0,
+                "usn": 0,
+                "collapsed": False,
+                "browserCollapsed": False,
+                "desc": "",
+                "dyn": 0,
+                "newToday": [0, 0],
+                "revToday": [0, 0],
+                "lrnToday": [0, 0],
+                "timeToday": [0, 0],
+            }
+        default_deck["name"] = "Default"
+        conn.execute("update col set decks = ?", (json.dumps({"1": default_deck}),))
 
 
 def inspect_ankidroid_webview(

@@ -200,12 +200,18 @@ including console errors, uncaught page errors, card error events, failed media
 requests, and selector visibility results.
 
 `android-smoke` is intentionally heavier. It is meant to run against a real
-AnkiDroid install in an emulator, imports configured APKGs through Android's
-MediaStore `content://` flow, opens a reviewer card, and inspects the live
+AnkiDroid install in an emulator, opens a reviewer card, and inspects the live
 AnkiDroid WebView over adb-forwarded Chrome DevTools Protocol using a raw CDP
-client. There is no `[android]` Python extra; Android SDK, emulator, AVD, and
-AnkiDroid APK setup are explicit host or CI responsibilities. Generate the
-opt-in image with:
+client. By default it imports configured APKGs through Android's MediaStore
+`content://` flow. With `--clear-app-data` or `android_clear_app_data = true`,
+it instead clears the disposable AnkiDroid app/storage state and seeds
+`/sdcard/AnkiDroid` directly from the single configured APKG before launch. Use
+that mode only for disposable emulators; it is designed for repeatable CI/card
+smoke tests, not for a real personal AnkiDroid profile.
+
+There is no `[android]` Python extra; Android SDK, emulator, AVD, and AnkiDroid
+APK setup are explicit host or CI responsibilities. Generate the opt-in image
+with:
 
 ```sh
 anki-workbench android-dockerfile \
@@ -226,6 +232,16 @@ AnkiDroid's actual WebView and that configured selectors are visible, but it is
 not a guarantee for every physical-device quirk. In particular, emulator smoke
 may not reproduce all freshly-imported-media serving failures or AnkiDroid's
 known false-positive "Card Content Error" toast from its own JS bridge.
+
+Useful Android config keys:
+
+```toml
+[tool.anki-addon-workbench]
+seed_apkgs = ["out/my-deck-offline.apkg"]
+android_ankidroid_apk = "out/workbench/AnkiDroid.apk"
+android_clear_app_data = true
+android_selectors = ["#answer svg", ".review-toolbar"]
+```
 
 > **`type` is ASCII-oriented.** It uses pyautogui's keystroke synthesis, which
 > reliably types ASCII and common keys but **cannot reliably type non-ASCII text

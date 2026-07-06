@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+- Make `android-smoke --clear-app-data` seed a disposable AnkiDroid collection
+  directly from a single configured APKG. This avoids brittle shell-driven
+  Android import intents while still testing the real AnkiDroid WebView.
+- Give AnkiDroid external-storage cleanup enough time for media-heavy deck
+  fixtures.
+- Launch AnkiDroid through its exported intent handler instead of its
+  non-exported deck picker activity.
+
 ## 0.5.0
 
 - Add `webkit-smoke` for iOS/AnkiMobile-engine card rendering through Playwright

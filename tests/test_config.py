@@ -31,6 +31,7 @@ android_selectors = ["#answer svg"]
 android_image = "fixture-android"
 android_workbench_spec = "anki-addon-workbench==9.9.9"
 android_ankidroid_apk = "https://example.test/AnkiDroid.apk"
+android_clear_app_data = true
 seed_apkgs = ["out/sample.apkg"]
 """,
         encoding="utf-8",
@@ -57,6 +58,7 @@ seed_apkgs = ["out/sample.apkg"]
     assert config.android_image == "fixture-android"
     assert config.android_workbench_spec == "anki-addon-workbench==9.9.9"
     assert config.android_ankidroid_apk == "https://example.test/AnkiDroid.apk"
+    assert config.android_clear_app_data is True
 
 
 def test_falls_back_to_anki_workbench_toml(tmp_path: Path) -> None:
