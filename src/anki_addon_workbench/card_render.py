@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import unquote, urlsplit
 
 from .types import JsonDict
@@ -167,7 +167,7 @@ class CardMediaServer:
     def base_url(self) -> str:
         if self._server is None:
             raise RuntimeError("card media server is not running")
-        host, port = self._server.server_address
+        host, port = cast(tuple[str, int], self._server.server_address)
         return f"http://{host}:{port}"
 
     @property
@@ -188,7 +188,11 @@ def probe_samples_to_card_sides(samples: object) -> list[RenderedCardSide]:
             continue
         note_id = sample.get("note_id")
         normalized_note_id = note_id if isinstance(note_id, int) else None
-        for side, key in (("question", "question_html"), ("answer", "answer_html")):
+        fields: tuple[tuple[CardSide, str], ...] = (
+            ("question", "question_html"),
+            ("answer", "answer_html"),
+        )
+        for side, key in fields:
             html = sample.get(key)
             if isinstance(html, str):
                 sides.append(

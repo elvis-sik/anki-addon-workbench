@@ -16,7 +16,6 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 from xml.etree import ElementTree
 
@@ -403,9 +402,9 @@ def extract_deck_names(apkg: Path) -> list[str]:
         return []
     with tempfile.TemporaryDirectory(prefix="aaw-apkg-") as tempdir:
         with zipfile.ZipFile(apkg) as archive:
-            names = set(archive.namelist())
-            collection_name = "collection.anki21" if "collection.anki21" in names else "collection.anki2"
-            if collection_name not in names:
+            archive_names = set(archive.namelist())
+            collection_name = "collection.anki21" if "collection.anki21" in archive_names else "collection.anki2"
+            if collection_name not in archive_names:
                 return []
             archive.extract(collection_name, tempdir)
         collection_path = Path(tempdir) / collection_name
@@ -416,12 +415,12 @@ def extract_deck_names(apkg: Path) -> list[str]:
     data = json.loads(row[0])
     if not isinstance(data, dict):
         return []
-    names = [
+    deck_names = [
         deck.get("name")
         for deck in data.values()
         if isinstance(deck, dict) and isinstance(deck.get("name"), str)
     ]
-    return sorted(name for name in names if name)
+    return sorted(name for name in deck_names if name)
 
 
 class RawCdpClient:
