@@ -26,7 +26,7 @@ DEFAULT_EXCLUDE = (
 )
 
 DEFAULT_DOCKER_WORKBENCH_SPEC = "anki-addon-workbench[gui]"
-DEFAULT_ANDROID_WORKBENCH_SPEC = "anki-addon-workbench[android]"
+DEFAULT_ANDROID_WORKBENCH_SPEC = "anki-addon-workbench"
 
 
 @dataclass(frozen=True)

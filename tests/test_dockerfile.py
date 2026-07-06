@@ -54,14 +54,14 @@ def test_render_allows_workbench_package_spec_override(tmp_path: Path) -> None:
 def test_render_android_dockerfile_includes_emulator_tooling(tmp_path: Path) -> None:
     text = render_android_dockerfile(
         _config(tmp_path),
-        workbench_spec="anki-addon-workbench[android]==0.5.0",
+        workbench_spec="anki-addon-workbench==0.5.0",
         ankidroid_apk_url="https://example.test/AnkiDroid.apk",
     )
 
     assert "FROM ubuntu:24.04" in text
     assert "platform-tools" in text
     assert "system-images;android-${ANDROID_API_LEVEL};google_apis" in text
-    assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench[android]==0.5.0"' in text
+    assert 'ARG ANKI_ADDON_WORKBENCH_SPEC="anki-addon-workbench==0.5.0"' in text
     assert 'ARG ANKIDROID_APK_URL="https://example.test/AnkiDroid.apk"' in text
     assert "android-smoke --start-emulator" in text
 

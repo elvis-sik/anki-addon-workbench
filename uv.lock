@@ -9,7 +9,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-06-28T00:51:17.821402Z"
+exclude-newer = "2026-06-29T13:49:19.536697Z"
 exclude-newer-span = "P7D"
 
 [[package]]
@@ -46,7 +46,7 @@ requires-dist = [
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
     { name = "tomli", marker = "extra == 'dev'", specifier = ">=2.0" },
 ]
-provides-extras = ["gui", "webkit", "android", "dev"]
+provides-extras = ["gui", "webkit", "dev"]
 
 [[package]]
 name = "ast-serialize"

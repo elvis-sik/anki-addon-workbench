@@ -29,7 +29,7 @@ webkit_device = "iPhone 14"
 card_smoke_timeout_ms = 9000
 android_selectors = ["#answer svg"]
 android_image = "fixture-android"
-android_workbench_spec = "anki-addon-workbench[android]==9.9.9"
+android_workbench_spec = "anki-addon-workbench==9.9.9"
 android_ankidroid_apk = "https://example.test/AnkiDroid.apk"
 seed_apkgs = ["out/sample.apkg"]
 """,
@@ -55,7 +55,7 @@ seed_apkgs = ["out/sample.apkg"]
     assert config.card_smoke_timeout_ms == 9000
     assert config.android_selectors == ("#answer svg",)
     assert config.android_image == "fixture-android"
-    assert config.android_workbench_spec == "anki-addon-workbench[android]==9.9.9"
+    assert config.android_workbench_spec == "anki-addon-workbench==9.9.9"
     assert config.android_ankidroid_apk == "https://example.test/AnkiDroid.apk"
 
 

@@ -29,7 +29,6 @@ gui = [
 webkit = [
   "playwright>=1.48.0",
 ]
-android = []
 dev = [
   "mypy>=1.13.0",
   "pytest>=8.0",

@@ -203,7 +203,9 @@ requests, and selector visibility results.
 AnkiDroid install in an emulator, imports configured APKGs through Android's
 MediaStore `content://` flow, opens a reviewer card, and inspects the live
 AnkiDroid WebView over adb-forwarded Chrome DevTools Protocol using a raw CDP
-client. Generate the opt-in image with:
+client. There is no `[android]` Python extra; Android SDK, emulator, AVD, and
+AnkiDroid APK setup are explicit host or CI responsibilities. Generate the
+opt-in image with:
 
 ```sh
 anki-workbench android-dockerfile \
