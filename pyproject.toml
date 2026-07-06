@@ -78,5 +78,5 @@ strict = true
 warn_return_any = false
 
 [[tool.mypy.overrides]]
-module = ["anki", "anki.*", "aqt", "aqt.*", "pyautogui", "PIL.*"]
+module = ["anki", "anki.*", "aqt", "aqt.*", "pyautogui", "PIL.*", "playwright", "playwright.*"]
 ignore_missing_imports = true
