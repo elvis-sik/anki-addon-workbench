@@ -62,6 +62,11 @@ def test_run_webkit_smoke_uses_desktop_probe_html(
     assert captured["run_smoke_kwargs"]["deck_smoke_include_html"] is True  # type: ignore[index]
     assert captured["render_kwargs"]["media_dir"] == media  # type: ignore[index]
     assert captured["render_kwargs"]["selectors"] == ("#answer svg",)  # type: ignore[index]
+    samples = payload["desktop_smoke"]["samples"]  # type: ignore[index]
+    assert "question_html" not in samples[0]  # type: ignore[index]
+    assert "answer_html" not in samples[0]  # type: ignore[index]
+    assert samples[0]["question_html_length"] == 34  # type: ignore[index]
+    assert samples[0]["answer_html_length"] == 34  # type: ignore[index]
 
 
 def test_run_webkit_smoke_reports_missing_html(

@@ -10,6 +10,27 @@ from .runner import DEFAULT_TIMEOUT_SECONDS, run_smoke
 from .types import JsonDict
 
 
+def _compact_desktop_payload(payload: JsonDict) -> JsonDict:
+    compact: JsonDict = dict(payload)
+    samples = compact.get("samples")
+    if not isinstance(samples, list):
+        return compact
+
+    compact_samples: list[object] = []
+    for sample in samples:
+        if not isinstance(sample, dict):
+            compact_samples.append(sample)
+            continue
+        compact_sample = dict(sample)
+        for key in ("question_html", "answer_html"):
+            value = compact_sample.pop(key, None)
+            if isinstance(value, str):
+                compact_sample[f"{key}_length"] = len(value)
+        compact_samples.append(compact_sample)
+    compact["samples"] = compact_samples
+    return compact
+
+
 def run_webkit_smoke(
     config: WorkbenchConfig,
     *,
@@ -70,6 +91,7 @@ def run_webkit_smoke(
             }
 
         card_sides = probe_samples_to_card_sides(desktop_payload.get("samples"))
+        desktop_summary = _compact_desktop_payload(desktop_payload)
         if not card_sides:
             return 1, {
                 "ok": False,
@@ -78,7 +100,7 @@ def run_webkit_smoke(
                     "desktop probe did not provide question_html/answer_html samples. "
                     "`webkit-smoke` needs rendered card HTML from the built-in deck probe."
                 ),
-                "desktop_smoke": desktop_payload,
+                "desktop_smoke": desktop_summary,
             }
 
         media_dir = Path(media_dir_value)
@@ -87,7 +109,7 @@ def run_webkit_smoke(
                 "ok": False,
                 "stage": "desktop_probe",
                 "error": f"desktop probe media_dir does not exist: {media_dir}",
-                "desktop_smoke": desktop_payload,
+                "desktop_smoke": desktop_summary,
             }
 
         try:
@@ -103,7 +125,7 @@ def run_webkit_smoke(
                 "ok": False,
                 "stage": "webkit",
                 "error": str(exc),
-                "desktop_smoke": desktop_payload,
+                "desktop_smoke": desktop_summary,
             }
 
         ok = bool(webkit_payload.get("ok"))
@@ -111,7 +133,7 @@ def run_webkit_smoke(
             "ok": ok,
             "stage": "complete" if ok else "webkit",
             "base": str(base_path),
-            "desktop_smoke": desktop_payload,
+            "desktop_smoke": desktop_summary,
             "webkit": webkit_payload,
         }
         if keep:
