@@ -4,19 +4,37 @@ import json
 import sqlite3
 import zipfile
 from pathlib import Path
+from xml.etree import ElementTree
 
 from anki_addon_workbench.android import (
     ANDROID_STORAGE_CLEANUP_TIMEOUT,
     ANKIDROID_INTENT_HANDLER,
     ANKIDROID_PACKAGE,
     _inspection_expression,
+    accept_scheduler_upgrade,
     clear_ankidroid_app_data,
     extract_apkg_for_ankidroid,
     extract_deck_names,
+    find_flashcard_cdp_target,
     parse_bounds,
     parse_media_store_id,
     start_ankidroid,
+    tap_first_deck_row,
 )
+
+
+class FakeUrlResponse:
+    def __init__(self, payload: object) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> FakeUrlResponse:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode("utf-8")
 
 
 def test_parse_media_store_id_finds_matching_download() -> None:
@@ -144,3 +162,73 @@ def test_inspection_expression_embeds_selectors_as_json() -> None:
 
     assert '"#answer svg"' in expression
     assert "document.querySelectorAll(selector)" in expression
+
+
+def test_find_flashcard_cdp_target_polls_until_webview_target_appears(monkeypatch) -> None:
+    payloads = [[], [], [{"title": "AnkiDroid Flashcard", "id": "card"}]]
+    sleeps: list[float] = []
+
+    def fake_urlopen(url: str, *, timeout: float) -> FakeUrlResponse:
+        assert url == "http://127.0.0.1:9222/json"
+        assert timeout > 0
+        return FakeUrlResponse(payloads.pop(0))
+
+    monkeypatch.setattr("anki_addon_workbench.android.urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("anki_addon_workbench.android.time.sleep", sleeps.append)
+
+    target = find_flashcard_cdp_target(port=9222, timeout=15, poll_interval=1)
+
+    assert target == {"title": "AnkiDroid Flashcard", "id": "card"}
+    assert sleeps == [1, 1]
+
+
+def test_accept_scheduler_upgrade_taps_positive_dialog_button(monkeypatch) -> None:
+    root = ElementTree.fromstring(
+        """
+        <hierarchy>
+          <node text="Scheduler upgrade required" />
+          <node resource-id="android:id/button3" text="Learn More"
+                clickable="true" bounds="[10,20][110,120]" />
+          <node resource-id="android:id/button1" text="OK"
+                clickable="true" bounds="[210,220][310,320]" />
+        </hierarchy>
+        """
+    )
+
+    class FakeDevice:
+        taps: list[tuple[int, int]] = []
+
+        def tap(self, x: int, y: int) -> None:
+            self.taps.append((x, y))
+
+    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _: root)
+    device = FakeDevice()
+
+    assert accept_scheduler_upgrade(device, timeout=1) is True  # type: ignore[arg-type]
+    assert device.taps == [(260, 270)]
+
+
+def test_tap_first_deck_row_ignores_other_clickable_text(monkeypatch) -> None:
+    root = ElementTree.fromstring(
+        f"""
+        <hierarchy>
+          <node resource-id="android:id/button3" text="Learn More"
+                clickable="true" bounds="[10,20][110,120]" />
+          <node resource-id="{ANKIDROID_PACKAGE}:id/deck_layout" text=""
+                clickable="true" bounds="[210,220][410,420]" />
+        </hierarchy>
+        """
+    )
+
+    class FakeDevice:
+        taps: list[tuple[int, int]] = []
+
+        def tap(self, x: int, y: int) -> None:
+            self.taps.append((x, y))
+
+    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _: root)
+    device = FakeDevice()
+
+    tap_first_deck_row(device, timeout=1)  # type: ignore[arg-type]
+
+    assert device.taps == [(310, 320)]

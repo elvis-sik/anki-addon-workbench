@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Poll AnkiDroid's forwarded CDP endpoint until the reviewer WebView target is
+  registered instead of failing when the first `/json` response is still empty.
+- Accept AnkiDroid's required V2 scheduler upgrade for directly seeded legacy
+  collections, and restrict fallback deck taps to actual deck rows so modal help
+  links cannot divert the smoke run into Chrome.
 - Make `android-smoke --clear-app-data` seed a disposable AnkiDroid collection
   directly from a single configured APKG. This avoids brittle shell-driven
   Android import intents while still testing the real AnkiDroid WebView.

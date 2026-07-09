@@ -246,6 +246,7 @@ def open_reviewer(
     timeout: int,
 ) -> None:
     start_ankidroid(device)
+    accept_scheduler_upgrade(device, timeout=min(5, timeout))
     candidates = tuple(deck_names) + ("Default",)
     if not tap_text(device, candidates, timeout=timeout, required=False):
         tap_first_deck_row(device, timeout=timeout)
@@ -368,7 +369,7 @@ def inspect_ankidroid_webview(
 ) -> JsonDict:
     socket_name = find_webview_devtools_socket(device)
     device.run(["forward", f"tcp:{port}", f"localabstract:{socket_name}"])
-    target = find_flashcard_cdp_target(port=port)
+    target = find_flashcard_cdp_target(port=port, timeout=timeout_ms / 1000)
     ws_url = target.get("webSocketDebuggerUrl")
     if not isinstance(ws_url, str):
         raise RuntimeError("AnkiDroid WebView target did not expose webSocketDebuggerUrl")
@@ -408,18 +409,42 @@ def find_webview_devtools_socket(device: AndroidDevice) -> str:
     return matches[0]
 
 
-def find_flashcard_cdp_target(*, port: int) -> JsonDict:
-    with urllib.request.urlopen(f"http://127.0.0.1:{port}/json", timeout=10) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    if not isinstance(payload, list):
-        raise RuntimeError("CDP /json response was not a list")
-    targets = [target for target in payload if isinstance(target, dict)]
-    for target in targets:
-        if target.get("title") == "AnkiDroid Flashcard":
-            return target
-    if targets:
-        return targets[0]
-    raise RuntimeError("CDP /json did not list any WebView targets")
+def find_flashcard_cdp_target(
+    *,
+    port: int,
+    timeout: float = 15,
+    poll_interval: float = 1,
+) -> JsonDict:
+    deadline = time.monotonic() + timeout
+    last_error: OSError | json.JSONDecodeError | None = None
+
+    while time.monotonic() < deadline:
+        request_timeout = min(10.0, max(0.1, deadline - time.monotonic()))
+        try:
+            with urllib.request.urlopen(
+                f"http://127.0.0.1:{port}/json", timeout=request_timeout
+            ) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            last_error = exc
+        else:
+            if not isinstance(payload, list):
+                raise RuntimeError("CDP /json response was not a list")
+            targets = [target for target in payload if isinstance(target, dict)]
+            for target in targets:
+                if target.get("title") == "AnkiDroid Flashcard":
+                    return target
+            if targets:
+                return targets[0]
+
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            time.sleep(min(poll_interval, remaining))
+
+    detail = f"; last request failed: {last_error}" if last_error is not None else ""
+    raise TimeoutError(
+        f"CDP /json did not list any WebView targets within {timeout:g}s{detail}"
+    )
 
 
 def wait_for_download_media_id(device: AndroidDevice, display_name: str, *, timeout: int) -> str:
@@ -480,13 +505,36 @@ def tap_first_deck_row(device: AndroidDevice, *, timeout: int) -> None:
         for node in root.iter("node"):
             resource_id = node.attrib.get("resource-id", "")
             clickable = node.attrib.get("clickable") == "true"
-            if clickable and ("deck" in resource_id.lower() or node.attrib.get("text")):
+            if clickable and resource_id == f"{ANKIDROID_PACKAGE}:id/deck_layout":
                 left, top, right, bottom = parse_bounds(node.attrib.get("bounds", ""))
                 if bottom > top and right > left:
                     device.tap((left + right) // 2, (top + bottom) // 2)
                     return
         time.sleep(1)
     raise TimeoutError("could not find a tappable AnkiDroid deck row")
+
+
+def accept_scheduler_upgrade(device: AndroidDevice, *, timeout: int) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        root = dump_ui_tree(device)
+        nodes = list(root.iter("node"))
+        if any(
+            node.attrib.get("resource-id") == f"{ANKIDROID_PACKAGE}:id/deck_picker_pane"
+            for node in nodes
+        ):
+            return False
+        if any(node.attrib.get("text") == "Scheduler upgrade required" for node in nodes):
+            for node in nodes:
+                if (
+                    node.attrib.get("resource-id") == "android:id/button1"
+                    and node.attrib.get("clickable") == "true"
+                ):
+                    left, top, right, bottom = parse_bounds(node.attrib.get("bounds", ""))
+                    device.tap((left + right) // 2, (top + bottom) // 2)
+                    return True
+        time.sleep(0.5)
+    return False
 
 
 def find_ui_node(device: AndroidDevice, texts: tuple[str, ...]) -> ElementTree.Element | None:
