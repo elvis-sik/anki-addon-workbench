@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.1
+
 - Poll AnkiDroid's forwarded CDP endpoint until the reviewer WebView target is
   registered instead of failing when the first `/json` response is still empty.
 - Accept AnkiDroid's required V2 scheduler upgrade for directly seeded legacy
