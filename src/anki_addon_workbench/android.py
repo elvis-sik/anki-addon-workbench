@@ -552,10 +552,32 @@ def find_ui_node(device: AndroidDevice, texts: tuple[str, ...]) -> ElementTree.E
     return None
 
 
-def dump_ui_tree(device: AndroidDevice) -> ElementTree.Element:
-    device.shell(["uiautomator", "dump", "/sdcard/aaw-window.xml"], check=False)
-    xml = device.run(["exec-out", "cat", "/sdcard/aaw-window.xml"], check=False).stdout
-    return ElementTree.fromstring(xml)
+def dump_ui_tree(
+    device: AndroidDevice,
+    *,
+    timeout: float = 5,
+    poll_interval: float = 0.3,
+) -> ElementTree.Element:
+    # uiautomator dump intermittently writes an empty/truncated file (e.g. right
+    # after an activity starts and the window manager isn't idle yet), which
+    # ElementTree can't parse. Retry internally so every caller's own polling
+    # loop (tap_text, tap_first_deck_row, accept_scheduler_upgrade) gets a valid
+    # tree instead of crashing out on the first bad dump.
+    deadline = time.monotonic() + timeout
+    last_error: ElementTree.ParseError | None = None
+    while True:
+        device.shell(["uiautomator", "dump", "/sdcard/aaw-window.xml"], check=False)
+        xml = device.run(["exec-out", "cat", "/sdcard/aaw-window.xml"], check=False).stdout
+        try:
+            return ElementTree.fromstring(xml)
+        except ElementTree.ParseError as exc:
+            last_error = exc
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError(
+                f"uiautomator dump did not produce parseable XML within {timeout:g}s: {last_error}"
+            ) from last_error
+        time.sleep(min(poll_interval, remaining))
 
 
 def parse_bounds(value: str) -> tuple[int, int, int, int]:

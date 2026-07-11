@@ -9,12 +9,12 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-07-02T23:00:57.166427Z"
+exclude-newer = "2026-07-04T12:35:40.791804Z"
 exclude-newer-span = "P7D"
 
 [[package]]
 name = "anki-addon-workbench"
-version = "0.5.1"
+version = "0.5.2"
 source = { editable = "." }
 dependencies = [
     { name = "tomli", marker = "python_full_version < '3.11'" },

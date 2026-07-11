@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.2
+
+- Retry `uiautomator dump` internally until it produces parseable XML instead of
+  letting a transient empty/truncated dump raise `ElementTree.ParseError` straight
+  through `tap_text`/`tap_first_deck_row`/`accept_scheduler_upgrade`'s own polling
+  loops. This was causing `android-smoke` to fail immediately after AnkiDroid
+  launched on slower/first-boot emulators (observed on GCE-hosted Batch runs)
+  even though the emulator and app were otherwise healthy.
+
 ## 0.5.1
 
 - Poll AnkiDroid's forwarded CDP endpoint until the reviewer WebView target is

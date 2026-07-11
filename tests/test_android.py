@@ -6,13 +6,17 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
 
+import pytest
+
 from anki_addon_workbench.android import (
     ANDROID_STORAGE_CLEANUP_TIMEOUT,
     ANKIDROID_INTENT_HANDLER,
     ANKIDROID_PACKAGE,
+    CommandResult,
     _inspection_expression,
     accept_scheduler_upgrade,
     clear_ankidroid_app_data,
+    dump_ui_tree,
     extract_apkg_for_ankidroid,
     extract_deck_names,
     find_flashcard_cdp_target,
@@ -180,6 +184,41 @@ def test_find_flashcard_cdp_target_polls_until_webview_target_appears(monkeypatc
 
     assert target == {"title": "AnkiDroid Flashcard", "id": "card"}
     assert sleeps == [1, 1]
+
+
+def test_dump_ui_tree_retries_until_uiautomator_output_is_parseable(monkeypatch) -> None:
+    outputs = ["", "", '<hierarchy><node text="Ready" /></hierarchy>']
+    sleeps: list[float] = []
+
+    class FakeDevice:
+        def shell(self, args: list[str], *, check: bool = True) -> str:
+            return ""
+
+        def run(self, args: list[str], *, check: bool = True) -> CommandResult:
+            return CommandResult(command=args, returncode=0, stdout=outputs.pop(0), stderr="")
+
+    monkeypatch.setattr("anki_addon_workbench.android.time.sleep", sleeps.append)
+
+    root = dump_ui_tree(FakeDevice(), timeout=5, poll_interval=0.3)  # type: ignore[arg-type]
+
+    node = root.find("node")
+    assert node is not None
+    assert node.attrib["text"] == "Ready"
+    assert sleeps == [0.3, 0.3]
+
+
+def test_dump_ui_tree_raises_timeout_error_when_never_parseable(monkeypatch) -> None:
+    class FakeDevice:
+        def shell(self, args: list[str], *, check: bool = True) -> str:
+            return ""
+
+        def run(self, args: list[str], *, check: bool = True) -> CommandResult:
+            return CommandResult(command=args, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr("anki_addon_workbench.android.time.sleep", lambda _: None)
+
+    with pytest.raises(TimeoutError):
+        dump_ui_tree(FakeDevice(), timeout=0.01, poll_interval=0.01)  # type: ignore[arg-type]
 
 
 def test_accept_scheduler_upgrade_taps_positive_dialog_button(monkeypatch) -> None:
