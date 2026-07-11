@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.3
+
+- Widen `dump_ui_tree()`'s internal retry window from 5s to 30s, and surface
+  `uiautomator dump`'s own return code/stderr plus the raw unparsed content in
+  the `TimeoutError` when it's exhausted. 0.5.2's retry fixed the crash but a
+  real environment (GCE-hosted Cloud Batch) still failed for the entire 5s
+  window with no way to tell why; this gives both more headroom and, if it's
+  still not enough, an actual root cause instead of a bare `ParseError`.
+
 ## 0.5.2
 
 - Retry `uiautomator dump` internally until it produces parseable XML instead of

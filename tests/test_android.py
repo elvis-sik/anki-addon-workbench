@@ -191,11 +191,10 @@ def test_dump_ui_tree_retries_until_uiautomator_output_is_parseable(monkeypatch)
     sleeps: list[float] = []
 
     class FakeDevice:
-        def shell(self, args: list[str], *, check: bool = True) -> str:
-            return ""
-
         def run(self, args: list[str], *, check: bool = True) -> CommandResult:
-            return CommandResult(command=args, returncode=0, stdout=outputs.pop(0), stderr="")
+            if args[:1] == ["exec-out"]:
+                return CommandResult(command=args, returncode=0, stdout=outputs.pop(0), stderr="")
+            return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("anki_addon_workbench.android.time.sleep", sleeps.append)
 
@@ -207,17 +206,21 @@ def test_dump_ui_tree_retries_until_uiautomator_output_is_parseable(monkeypatch)
     assert sleeps == [0.3, 0.3]
 
 
-def test_dump_ui_tree_raises_timeout_error_when_never_parseable(monkeypatch) -> None:
+def test_dump_ui_tree_raises_timeout_error_with_uiautomator_diagnostics(monkeypatch) -> None:
     class FakeDevice:
-        def shell(self, args: list[str], *, check: bool = True) -> str:
-            return ""
-
         def run(self, args: list[str], *, check: bool = True) -> CommandResult:
+            if args[:1] == ["shell"]:
+                return CommandResult(
+                    command=args,
+                    returncode=1,
+                    stdout="",
+                    stderr="ERROR: could not get idle state.",
+                )
             return CommandResult(command=args, returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr("anki_addon_workbench.android.time.sleep", lambda _: None)
 
-    with pytest.raises(TimeoutError):
+    with pytest.raises(TimeoutError, match="could not get idle state"):
         dump_ui_tree(FakeDevice(), timeout=0.01, poll_interval=0.01)  # type: ignore[arg-type]
 
 

@@ -555,27 +555,39 @@ def find_ui_node(device: AndroidDevice, texts: tuple[str, ...]) -> ElementTree.E
 def dump_ui_tree(
     device: AndroidDevice,
     *,
-    timeout: float = 5,
+    timeout: float = 30,
     poll_interval: float = 0.3,
 ) -> ElementTree.Element:
     # uiautomator dump intermittently writes an empty/truncated file (e.g. right
     # after an activity starts and the window manager isn't idle yet), which
     # ElementTree can't parse. Retry internally so every caller's own polling
     # loop (tap_text, tap_first_deck_row, accept_scheduler_upgrade) gets a valid
-    # tree instead of crashing out on the first bad dump.
+    # tree instead of crashing out on the first bad dump. Keep both commands'
+    # full CommandResult (not just stdout) so a persistent failure raises with
+    # uiautomator's own stderr/returncode and the unparsed content attached --
+    # a bare ElementTree.ParseError gives no way to tell "screen locked" from
+    # "accessibility service not registered yet" from "empty file".
     deadline = time.monotonic() + timeout
     last_error: ElementTree.ParseError | None = None
+    last_dump: CommandResult | None = None
+    last_cat: CommandResult | None = None
     while True:
-        device.shell(["uiautomator", "dump", "/sdcard/aaw-window.xml"], check=False)
-        xml = device.run(["exec-out", "cat", "/sdcard/aaw-window.xml"], check=False).stdout
+        last_dump = device.run(
+            ["shell", "uiautomator", "dump", "/sdcard/aaw-window.xml"], check=False
+        )
+        last_cat = device.run(["exec-out", "cat", "/sdcard/aaw-window.xml"], check=False)
         try:
-            return ElementTree.fromstring(xml)
+            return ElementTree.fromstring(last_cat.stdout)
         except ElementTree.ParseError as exc:
             last_error = exc
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise TimeoutError(
-                f"uiautomator dump did not produce parseable XML within {timeout:g}s: {last_error}"
+                f"uiautomator dump did not produce parseable XML within {timeout:g}s: "
+                f"{last_error}; last `uiautomator dump` rc={last_dump.returncode} "
+                f"stdout={last_dump.stdout.strip()!r} stderr={last_dump.stderr.strip()!r}; "
+                f"last `exec-out cat` rc={last_cat.returncode} "
+                f"stdout={last_cat.stdout[:200]!r} stderr={last_cat.stderr.strip()!r}"
             ) from last_error
         time.sleep(min(poll_interval, remaining))
 
