@@ -243,7 +243,7 @@ def test_accept_scheduler_upgrade_taps_positive_dialog_button(monkeypatch) -> No
         def tap(self, x: int, y: int) -> None:
             self.taps.append((x, y))
 
-    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _: root)
+    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _, **_kwargs: root)
     device = FakeDevice()
 
     assert accept_scheduler_upgrade(device, timeout=1) is True  # type: ignore[arg-type]
@@ -268,7 +268,7 @@ def test_tap_first_deck_row_ignores_other_clickable_text(monkeypatch) -> None:
         def tap(self, x: int, y: int) -> None:
             self.taps.append((x, y))
 
-    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _: root)
+    monkeypatch.setattr("anki_addon_workbench.android.dump_ui_tree", lambda _, **_kwargs: root)
     device = FakeDevice()
 
     tap_first_deck_row(device, timeout=1)  # type: ignore[arg-type]

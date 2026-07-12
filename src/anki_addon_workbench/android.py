@@ -97,6 +97,7 @@ def run_android_smoke(
     apk = ankidroid_apk or config.android_ankidroid_apk or os.environ.get("ANKIDROID_APK")
     effective_selectors = selectors if selectors is not None else config.android_selectors
     timeout_ms = render_timeout_ms or config.card_smoke_timeout_ms
+    ui_dump_timeout = config.android_ui_dump_timeout
     device = AndroidDevice(adb=adb)
     emulator_process: subprocess.Popen[str] | None = None
     imported: list[JsonDict] = []
@@ -133,14 +134,21 @@ def run_android_smoke(
             apkg = config.seed_apkgs[0]
             deck_names.append("Default")
             imported.append(seed_ankidroid_collection(device, apkg))
-            onboard_ankidroid(device)
+            onboard_ankidroid(device, ui_dump_timeout=ui_dump_timeout)
         else:
-            onboard_ankidroid(device)
+            onboard_ankidroid(device, ui_dump_timeout=ui_dump_timeout)
             for index, apkg in enumerate(config.seed_apkgs):
                 deck_names.extend(extract_deck_names(apkg))
-                imported.append(import_apkg(device, apkg, index=index))
+                imported.append(
+                    import_apkg(device, apkg, index=index, ui_dump_timeout=ui_dump_timeout)
+                )
 
-        open_reviewer(device, deck_names=deck_names, timeout=max(30, timeout_ms // 1000))
+        open_reviewer(
+            device,
+            deck_names=deck_names,
+            timeout=max(30, timeout_ms // 1000),
+            ui_dump_timeout=ui_dump_timeout,
+        )
         inspection = inspect_ankidroid_webview(
             device,
             selectors=effective_selectors,
@@ -186,17 +194,31 @@ def wait_for_android_boot(device: AndroidDevice, *, timeout: int) -> None:
     raise TimeoutError(f"Android emulator did not finish booting within {timeout}s")
 
 
-def onboard_ankidroid(device: AndroidDevice) -> None:
+def onboard_ankidroid(device: AndroidDevice, *, ui_dump_timeout: float = 30) -> None:
     start_ankidroid(device)
     device.shell(
         ["appops", "set", "--uid", ANKIDROID_PACKAGE, "MANAGE_EXTERNAL_STORAGE", "allow"],
         check=False,
     )
-    tap_text(device, ("Get Started", "GET STARTED"), timeout=12, required=False)
-    tap_text(device, ("Continue", "CONTINUE", "Allow", "ALLOW"), timeout=12, required=False)
+    tap_text(
+        device,
+        ("Get Started", "GET STARTED"),
+        timeout=12,
+        required=False,
+        ui_dump_timeout=ui_dump_timeout,
+    )
+    tap_text(
+        device,
+        ("Continue", "CONTINUE", "Allow", "ALLOW"),
+        timeout=12,
+        required=False,
+        ui_dump_timeout=ui_dump_timeout,
+    )
 
 
-def import_apkg(device: AndroidDevice, apkg: Path, *, index: int) -> JsonDict:
+def import_apkg(
+    device: AndroidDevice, apkg: Path, *, index: int, ui_dump_timeout: float = 30
+) -> JsonDict:
     if not apkg.is_file():
         raise FileNotFoundError(apkg)
 
@@ -234,8 +256,10 @@ def import_apkg(device: AndroidDevice, apkg: Path, *, index: int) -> JsonDict:
         ],
         timeout=30,
     )
-    tap_text(device, ("Add", "ADD"), timeout=60, required=False)
-    tap_text(device, ("Import", "IMPORT"), timeout=120, required=False)
+    tap_text(device, ("Add", "ADD"), timeout=60, required=False, ui_dump_timeout=ui_dump_timeout)
+    tap_text(
+        device, ("Import", "IMPORT"), timeout=120, required=False, ui_dump_timeout=ui_dump_timeout
+    )
     return {"apkg": str(apkg), "remote_path": remote_path, "content_uri": content_uri}
 
 
@@ -244,13 +268,22 @@ def open_reviewer(
     *,
     deck_names: list[str],
     timeout: int,
+    ui_dump_timeout: float = 30,
 ) -> None:
     start_ankidroid(device)
-    accept_scheduler_upgrade(device, timeout=min(5, timeout))
+    accept_scheduler_upgrade(device, timeout=min(5, timeout), ui_dump_timeout=ui_dump_timeout)
     candidates = tuple(deck_names) + ("Default",)
-    if not tap_text(device, candidates, timeout=timeout, required=False):
-        tap_first_deck_row(device, timeout=timeout)
-    tap_text(device, ("Study Now", "STUDY NOW"), timeout=timeout, required=False)
+    if not tap_text(
+        device, candidates, timeout=timeout, required=False, ui_dump_timeout=ui_dump_timeout
+    ):
+        tap_first_deck_row(device, timeout=timeout, ui_dump_timeout=ui_dump_timeout)
+    tap_text(
+        device,
+        ("Study Now", "STUDY NOW"),
+        timeout=timeout,
+        required=False,
+        ui_dump_timeout=ui_dump_timeout,
+    )
 
 
 def start_ankidroid(device: AndroidDevice) -> None:
@@ -484,10 +517,11 @@ def tap_text(
     *,
     timeout: int,
     required: bool,
+    ui_dump_timeout: float = 30,
 ) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        node = find_ui_node(device, texts)
+        node = find_ui_node(device, texts, ui_dump_timeout=ui_dump_timeout)
         if node is not None:
             left, top, right, bottom = parse_bounds(node.attrib.get("bounds", ""))
             device.tap((left + right) // 2, (top + bottom) // 2)
@@ -498,10 +532,10 @@ def tap_text(
     return False
 
 
-def tap_first_deck_row(device: AndroidDevice, *, timeout: int) -> None:
+def tap_first_deck_row(device: AndroidDevice, *, timeout: int, ui_dump_timeout: float = 30) -> None:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        root = dump_ui_tree(device)
+        root = dump_ui_tree(device, timeout=ui_dump_timeout)
         for node in root.iter("node"):
             resource_id = node.attrib.get("resource-id", "")
             clickable = node.attrib.get("clickable") == "true"
@@ -514,10 +548,12 @@ def tap_first_deck_row(device: AndroidDevice, *, timeout: int) -> None:
     raise TimeoutError("could not find a tappable AnkiDroid deck row")
 
 
-def accept_scheduler_upgrade(device: AndroidDevice, *, timeout: int) -> bool:
+def accept_scheduler_upgrade(
+    device: AndroidDevice, *, timeout: int, ui_dump_timeout: float = 30
+) -> bool:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        root = dump_ui_tree(device)
+        root = dump_ui_tree(device, timeout=ui_dump_timeout)
         nodes = list(root.iter("node"))
         if any(
             node.attrib.get("resource-id") == f"{ANKIDROID_PACKAGE}:id/deck_picker_pane"
@@ -537,9 +573,11 @@ def accept_scheduler_upgrade(device: AndroidDevice, *, timeout: int) -> bool:
     return False
 
 
-def find_ui_node(device: AndroidDevice, texts: tuple[str, ...]) -> ElementTree.Element | None:
+def find_ui_node(
+    device: AndroidDevice, texts: tuple[str, ...], *, ui_dump_timeout: float = 30
+) -> ElementTree.Element | None:
     wanted = {text.casefold() for text in texts if text}
-    root = dump_ui_tree(device)
+    root = dump_ui_tree(device, timeout=ui_dump_timeout)
     for node in root.iter("node"):
         values = [
             node.attrib.get("text", ""),

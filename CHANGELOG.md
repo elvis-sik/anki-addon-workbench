@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.5.4
+
+- Add `android_ui_dump_timeout` to `WorkbenchConfig` (default 30, matching
+  `dump_ui_tree()`'s own default) and thread it through the whole Android UI
+  automation call chain (`onboard_ankidroid`, `import_apkg`, `open_reviewer`,
+  `accept_scheduler_upgrade`, `tap_text`, `tap_first_deck_row`,
+  `find_ui_node`) so it's configurable via `[tool.anki-addon-workbench]`
+  instead of only overridable by editing source.
+
 ## 0.5.3
 
 - Widen `dump_ui_tree()`'s internal retry window from 5s to 30s, and surface

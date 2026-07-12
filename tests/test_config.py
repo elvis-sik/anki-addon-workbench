@@ -32,6 +32,7 @@ android_image = "fixture-android"
 android_workbench_spec = "anki-addon-workbench==9.9.9"
 android_ankidroid_apk = "https://example.test/AnkiDroid.apk"
 android_clear_app_data = true
+android_ui_dump_timeout = 45
 seed_apkgs = ["out/sample.apkg"]
 """,
         encoding="utf-8",
@@ -59,6 +60,7 @@ seed_apkgs = ["out/sample.apkg"]
     assert config.android_workbench_spec == "anki-addon-workbench==9.9.9"
     assert config.android_ankidroid_apk == "https://example.test/AnkiDroid.apk"
     assert config.android_clear_app_data is True
+    assert config.android_ui_dump_timeout == 45
 
 
 def test_falls_back_to_anki_workbench_toml(tmp_path: Path) -> None:
@@ -106,6 +108,7 @@ probe_addon = "tests/probe"
     assert config.addon_package is None
     assert config.seed_apkgs == (root / "out" / "deck.apkg",)
     assert config.probe_addon == root / "tests" / "probe"
+    assert config.android_ui_dump_timeout == 30
 
 
 def test_rejects_invalid_deck_smoke_render_limit(tmp_path: Path) -> None:
@@ -120,4 +123,19 @@ deck_smoke_render_limit = 0
     )
 
     with pytest.raises(ValueError, match="deck_smoke_render_limit"):
+        load_config(root)
+
+
+def test_rejects_invalid_android_ui_dump_timeout(tmp_path: Path) -> None:
+    root = tmp_path.resolve()
+    (root / "anki-workbench.toml").write_text(
+        """
+project_name = "Deck Fixture"
+seed_apkgs = ["out/deck.apkg"]
+android_ui_dump_timeout = 0
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="android_ui_dump_timeout"):
         load_config(root)

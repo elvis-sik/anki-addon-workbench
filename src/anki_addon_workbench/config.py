@@ -56,6 +56,7 @@ class WorkbenchConfig:
     android_workbench_spec: str = DEFAULT_ANDROID_WORKBENCH_SPEC
     android_ankidroid_apk: str | None = None
     android_clear_app_data: bool = False
+    android_ui_dump_timeout: float = 30
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -84,6 +85,7 @@ class WorkbenchConfig:
             "android_workbench_spec": self.android_workbench_spec,
             "android_ankidroid_apk": self.android_ankidroid_apk,
             "android_clear_app_data": self.android_clear_app_data,
+            "android_ui_dump_timeout": self.android_ui_dump_timeout,
         }
 
 
@@ -192,6 +194,14 @@ def _optional_positive_int(value: object, *, key: str, default: int) -> int:
     return value
 
 
+def _optional_positive_float(value: object, *, key: str, default: float) -> float:
+    if value is None:
+        return default
+    if not isinstance(value, (int, float)) or isinstance(value, bool) or value <= 0:
+        raise ValueError(f"{key} must be a positive number")
+    return float(value)
+
+
 def _optional_bool(value: object, *, key: str, default: bool = False) -> bool:
     if value is None:
         return default
@@ -265,6 +275,11 @@ def _config_from_table(path: Path, table: dict[str, Any]) -> WorkbenchConfig:
         ),
         android_clear_app_data=_optional_bool(
             table.get("android_clear_app_data"), key="android_clear_app_data"
+        ),
+        android_ui_dump_timeout=_optional_positive_float(
+            table.get("android_ui_dump_timeout"),
+            key="android_ui_dump_timeout",
+            default=30,
         ),
     )
 
