@@ -7,8 +7,8 @@
 <p align="center">
   <a href="https://pypi.org/project/anki-addon-workbench/"><img alt="PyPI" src="https://img.shields.io/pypi/v/anki-addon-workbench?color=blue&logo=pypi&logoColor=white"></a>
   <a href="https://pypi.org/project/anki-addon-workbench/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/anki-addon-workbench?logo=python&logoColor=white"></a>
-  <a href="https://github.com/elvis-sik/anki-addon-workbench/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/elvis-sik/anki-addon-workbench/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/elvis-sik/anki-addon-workbench/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/anki-addon-workbench?color=green"></a>
+  <a href="https://github.com/ritornello-labs/anki-addon-workbench/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ritornello-labs/anki-addon-workbench/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/ritornello-labs/anki-addon-workbench/blob/main/LICENSE"><img alt="License: MIT" src="https://img.shields.io/pypi/l/anki-addon-workbench?color=green"></a>
   <img alt="Platforms" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Xvfb-lightgrey">
 </p>
 
@@ -312,7 +312,7 @@ When dogfooding an unreleased workbench build, either set
 ```sh
 anki-workbench dockerfile \
   --out tests/gui_smoke/Dockerfile \
-  --workbench-spec "anki-addon-workbench[gui] @ https://github.com/elvis-sik/anki-addon-workbench/archive/<commit>.zip"
+  --workbench-spec "anki-addon-workbench[gui] @ https://github.com/ritornello-labs/anki-addon-workbench/archive/<commit>.zip"
 ```
 
 For workbench maintainers, the higher-level local-wheel path avoids publishing

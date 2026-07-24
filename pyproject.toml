@@ -37,9 +37,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/elvis-sik/anki-addon-workbench"
-Repository = "https://github.com/elvis-sik/anki-addon-workbench"
-Issues = "https://github.com/elvis-sik/anki-addon-workbench/issues"
+Homepage = "https://github.com/ritornello-labs/anki-addon-workbench"
+Repository = "https://github.com/ritornello-labs/anki-addon-workbench"
+Issues = "https://github.com/ritornello-labs/anki-addon-workbench/issues"
 
 [project.scripts]
 anki-workbench = "anki_addon_workbench.cli:main"
